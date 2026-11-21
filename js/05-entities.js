@@ -350,6 +350,7 @@ function loadLocation(idx){
   $('locName').classList.add('show');
   $('bossWrap').classList.remove('show');
   const ox=stageBounds.minX,oz=stageBounds.minZ;
+  const mountainRoute=idx===2?getMountainRouteLayout(ox,oz):null;
   const floorRooms=[buildStageFloor(idx,0,ox,oz),buildStageFloor(idx,1,ox,oz)];
   const stairSpecs=[
     {col:2,row:0,run:28,width:4.8,style:'stone'},
@@ -364,11 +365,14 @@ function loadLocation(idx){
   const elevatorX=ox+3*ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
   const elevatorZ=oz+ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
   stairHoles.push({x0:elevatorX-3.25,x1:elevatorX+3.25,z0:elevatorZ-3.25,z1:elevatorZ+3.25});
+  const lowerFloorOpenings=mountainRoute?[mountainRoute.wellOpening,mountainRoute.spiralOpening]:[];
+  mountainFloorVoids=lowerFloorOpenings;
+  const upperFloorHoles=stairHoles.concat(mountainRoute?mountainRoute.fallOpenings:[]);
   const floorMargin=10;
   const floorSegmentSpacing=idx===2?6:3;
-  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0],[],false,floorSegmentSpacing);
-  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1],stairHoles,false,floorSegmentSpacing);
-  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]-1.5,stairHoles,true,floorSegmentSpacing);
+  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0],lowerFloorOpenings,false,floorSegmentSpacing);
+  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1],upperFloorHoles,false,floorSegmentSpacing);
+  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]-1.5,upperFloorHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true,floorSegmentSpacing);
   stairSpecs.forEach(spec=>addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style));
@@ -379,6 +383,7 @@ function loadLocation(idx){
   scatterCryptAtmosphere(floorRooms,idx);
   buildLocationLandmarks(idx,ox,oz);
   buildCampaignTargets(idx,ox,oz);
+  if(idx===2) buildMountainRoute(ox,oz);
   createDistantHorizon(idx);
   rebuildWallCollisionGrid();
   spawnDustMotes(60);
@@ -426,7 +431,8 @@ function loadLocation(idx){
   const bossCell=Math.floor(mazeSize/2)+0.5;
   const bx=bossRoom.roomX+bossCell*cellSize;
   const bz=bossRoom.roomZ+bossCell*cellSize;
-  spawnBoss(bossNames[idx]||bossNames[0],bx,bz,FLOOR_LEVELS[1]);
+  if(idx===3) buildCastleInterior(floorRooms,bossRoom);
+  spawnBoss(idx===3?'ПАУЧЬЯ МАТРИАРХА':(bossNames[idx]||bossNames[0]),bx,bz,FLOOR_LEVELS[1]);
   if(idx<2)addCampaignExit(idx+1,bx-3,bz,FLOOR_LEVELS[1]);
   updateStageLocationLabel(true);
 

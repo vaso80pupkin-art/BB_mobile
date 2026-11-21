@@ -110,6 +110,12 @@ function updateEnemies(dt,time){
     while(angDiff>Math.PI) angDiff -= Math.PI*2;
     while(angDiff<-Math.PI) angDiff += Math.PI*2;
     const canDetect = Math.abs(vertical)<FLOOR_HEIGHT*0.4 && d < e.detectionRange && Math.abs(angDiff) < Math.PI/2.5;
+    if(e.ceilingAmbush&&!e.ambushTriggered){
+      e.mesh.position.y=e.floorY+8;
+      if(Math.hypot(dx,dz)<e.ambushRange){e.ambushTriggered=true;e.ambushDrop=0.45;e.state='alert';e.detected=true;notify('ПАУК ПАДАЕТ С ПОТОЛКА!');}
+      else return;
+    }
+    if(e.ambushDrop>0){e.ambushDrop=Math.max(0,e.ambushDrop-dt);e.mesh.position.y=e.floorY+1+7*(e.ambushDrop/0.45);return;}
     switch(e.state){
       case 'idle':
         e.mesh.position.y = e.floorY + Math.sin(time*2+e.homeX)*0.05;
@@ -220,6 +226,7 @@ function updateEnemies(dt,time){
       else if(loot.type==='gem'){ player.availableGems.push(loot.gem); notify('💎 ПОЛУЧЕН САМОЦВЕТ: ' + loot.gem.name); sfx('gem'); }
       else if(loot.type==='tool'){ player.tools[loot.tool] += loot.amount; notify('+'+loot.amount+' ' + loot.tool.toUpperCase()); }
       else { player.echoes += loot.amount*100; notify('+'+(loot.amount*100)+' ОТГОЛОСКОВ'); }
+      if(c.uniqueRewardKey){campaignProgress.brokenSecrets[c.uniqueRewardKey]=true;SaveSystem.save();}
       updateHUD();
       const lid = c.mesh.children[1];
       lid.rotation.x = -Math.PI/2; lid.position.y = 0.95;

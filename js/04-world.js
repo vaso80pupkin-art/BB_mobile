@@ -648,18 +648,40 @@ function getFloorHeightAt(x,z,currentY=0){
   for(const elevator of stageElevators){
     if(Math.abs(x-elevator.x)<=2.35&&Math.abs(z-elevator.z)<=2.35&&Math.abs(currentY-(elevator.currentY+0.4))<2.8) return elevator.currentY+0.4;
   }
+  const inLowerVoid=currentLocation===2&&mountainFloorVoids.some(hole=>x>=hole.x0&&x<=hole.x1&&z>=hole.z0&&z<=hole.z1);
+  const reachable=FLOOR_LEVELS.filter(y=>y<=currentY+0.6&&y>=currentY-1.35&&!(y===0&&inLowerVoid));
   for(const stair of stairs){
     const side=Math.abs(x-stair.x),along=z-stair.z;
     if(side<=stair.width/2+0.8&&along>=-0.25&&along<=stair.run+0.25){
       const t=Math.max(0,Math.min(1,along/stair.run));
-      return stair.lowerY+(stair.upperY-stair.lowerY)*t;
+      const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*t;
+      if(stairY<=currentY+0.6&&stairY>=currentY-1.35) reachable.push(stairY);
     }
   }
+  if(currentLocation===2) mountainWalkableSurfaces.forEach(surface=>{
+    if(x>=surface.minX&&x<=surface.maxX&&z>=surface.minZ&&z<=surface.maxZ&&surface.y<=currentY+0.6&&surface.y>=currentY-1.35) reachable.push(surface.y);
+  });
+  if(reachable.length) return Math.max(...reachable);
+  if(inLowerVoid&&currentY>=-0.6) return -0.7;
+  if(currentLocation===2&&currentY<0) return currentY;
   return FLOOR_LEVELS.reduce((closest,y)=>Math.abs(y-currentY)<Math.abs(closest-currentY)?y:closest,FLOOR_LEVELS[0]);
 }
 
 function updateHunterFloor(){
   if(!hunter) return;
+  if(currentLocation===2){
+    const fall=mountainFallZones.find(zone=>hunter.position.x>=zone.minX&&hunter.position.x<=zone.maxX&&hunter.position.z>=zone.minZ&&hunter.position.z<=zone.maxZ&&
+      (!zone.centerX||Math.hypot(hunter.position.x-zone.centerX,hunter.position.z-zone.centerZ)>=zone.minRadius)&&hunter.position.y>=zone.minY&&hunter.position.y<=zone.maxY);
+    if(fall){
+      const checkpoint=player.respawnPoint&&(player.respawnPoint.loc===undefined||player.respawnPoint.loc===currentLocation)?player.respawnPoint:null;
+      const respawn=checkpoint||{x:stageBounds.minX+cellSize*1.5,z:stageBounds.minZ+cellSize*1.5,y:0};
+      player.hp=Math.max(1,player.hp-(fall.damage||25));
+      hunter.position.set(respawn.x,respawn.y||0,respawn.z);
+      player.screenShake=0.55;
+      if(typeof damageFlash==='function') damageFlash();
+      sfx('hit');updateHUD();notify('СОРВАЛИСЬ С ОБРЫВА — ВОЗВРАЩЕНИЕ К ПОСЛЕДНЕМУ ФОНАРЮ');
+    }
+  }
   hunter.position.y=getFloorHeightAt(hunter.position.x,hunter.position.z,hunter.position.y);
   const nextFloor=Math.abs(hunter.position.y-FLOOR_LEVELS[1])<FLOOR_HEIGHT/2?1:0;
   if(nextFloor!==currentFloorIndex){ currentFloorIndex=nextFloor; updateStageLocationLabel(true); }
@@ -740,11 +762,172 @@ function addBreakableStoneWall(id,x,z,floorY){
   const barrier={id,x,z,y:floorY,group,collider,hp:2};breakableBarriers.push(barrier);
   const interactable={type:'secretWall',x,z,y:floorY,barrier};worldInteractables.push(interactable);
 }
+function getMountainRouteLayout(ox,oz){
+  const bridgeX=ox+3.5*ROOM_WORLD_SIZE,bridgeZ=oz+ROOM_WORLD_SIZE/2;
+  const wellX=ox+1.5*ROOM_WORLD_SIZE,wellZ=oz+ROOM_WORLD_SIZE+7;
+  const spiralX=ox+3*ROOM_WORLD_SIZE+8,spiralZ=oz+ROOM_WORLD_SIZE*1.5;
+  const fallOpenings=[
+    {x0:bridgeX-16,x1:bridgeX+16,z0:bridgeZ-5.4,z1:bridgeZ-2.55},
+    {x0:bridgeX-16,x1:bridgeX+16,z0:bridgeZ+2.55,z1:bridgeZ+5.4}
+  ];
+  return {
+    bridgeX,bridgeZ,wellX,wellZ,spiralX,spiralZ,
+    valleyX:ox+ROOM_WORLD_SIZE/2,valleyZ:oz+ROOM_WORLD_SIZE*1.5,
+    lookoutX:bridgeX,lookoutZ:bridgeZ,
+    gateX:ox+3.5*ROOM_WORLD_SIZE,gateZ:oz+ROOM_WORLD_SIZE+42,
+    wellOpening:{x0:wellX-3.1,x1:wellX+3.1,z0:wellZ-1,z1:wellZ+22},
+    spiralOpening:{x0:spiralX-6.8,x1:spiralX+6.8,z0:spiralZ-6.8,z1:spiralZ+6.8},
+    fallOpenings,
+    fallZones:[
+      ...fallOpenings.map(hole=>({minX:hole.x0,maxX:hole.x1,minZ:hole.z0,maxZ:hole.z1,minY:8,maxY:23,damage:25})),
+      {minX:spiralX-6.8,maxX:spiralX+6.8,minZ:spiralZ-6.8,maxZ:spiralZ-5.4,minY:-0.5,maxY:1.5,damage:25},
+      {minX:spiralX-6.8,maxX:spiralX+6.8,minZ:spiralZ+5.4,maxZ:spiralZ+6.8,minY:-0.5,maxY:1.5,damage:25},
+      {minX:spiralX-6.8,maxX:spiralX-5.4,minZ:spiralZ-5.4,maxZ:spiralZ+5.4,minY:-0.5,maxY:1.5,damage:25},
+      {minX:spiralX+5.4,maxX:spiralX+6.8,minZ:spiralZ-5.4,maxZ:spiralZ+5.4,minY:-0.5,maxY:1.5,damage:25},
+      {minX:-16,maxX:14,minZ:16,maxZ:25,minY:-8.5,maxY:-6.4,damage:25},
+      {minX:-16,maxX:14,minZ:29,maxZ:38,minY:-8.5,maxY:-6.4,damage:25}
+    ]
+  };
+}
+
+function addMountainFloorPatch(x,z,width,depth,floorY,material){
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(width,0.2,depth),material);
+  mesh.position.set(x,floorY-0.1,z);mesh.receiveShadow=true;scene.add(mesh);envObjects.push({mesh});
+  mountainWalkableSurfaces.push({minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2,y:floorY});
+  return mesh;
+}
+
+function addMountainCliffWall(group,x,y,z,width,height,depth,material){
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(width,height,depth),material);
+  mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+  wallColliders.push({minX:x-width/2,maxX:x+width/2,minY:y-height/2,maxY:y+height/2,minZ:z-depth/2,maxZ:z+depth/2,cx:x,cy:y,cz:z,w:width,h:height,d:depth,floorY:y-height/2});
+  return mesh;
+}
+
+function addMountainSpiralStair(x,z,lowerY=-8,upperY=0){
+  const group=new THREE.Group(),stone=new THREE.MeshStandardMaterial({color:0x55504a,roughness:0.92,bumpMap:createSurfaceTextures().wallBump,bumpScale:0.08});
+  const treadGeometry=new THREE.BoxGeometry(1.9,0.2,1.45),steps=40,radius=4.5;
+  for(let i=0;i<steps;i++){
+    const t=(i+1)/steps,angle=-Math.PI/2+t*Math.PI*3,y=lowerY+(upperY-lowerY)*t;
+    const px=x+Math.cos(angle)*radius,pz=z+Math.sin(angle)*radius;
+    const tread=new THREE.Mesh(treadGeometry,stone);tread.position.set(px,y-0.1,pz);tread.rotation.y=-angle;tread.castShadow=true;tread.receiveShadow=true;group.add(tread);
+    mountainWalkableSurfaces.push({minX:px-1.05,maxX:px+1.05,minZ:pz-0.85,maxZ:pz+0.85,y});
+  }
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.58,8.4,10),stone);pole.position.set(x,-3.8,z);pole.castShadow=true;group.add(pole);
+  scene.add(group);envObjects.push({mesh:group});
+}
+
+function buildMountainBridge(x,z,floorY,width,length,material,underground=false){
+  const group=new THREE.Group(),plankGeometry=new THREE.BoxGeometry(1.85,0.18,width),count=Math.floor(length/1.72);
+  for(let i=0;i<count;i++){
+    const px=x-length/2+0.9+i*1.72,plank=new THREE.Mesh(plankGeometry,material);
+    plank.position.set(px,floorY-0.09,z);plank.rotation.y=(i%4===0?0.025:0);plank.castShadow=true;plank.receiveShadow=true;group.add(plank);
+    mountainWalkableSurfaces.push({minX:px-1.05,maxX:px+1.05,minZ:z-width/2-0.12,maxZ:z+width/2+0.12,y:floorY});
+  }
+  if(underground){
+    const support=new THREE.Mesh(new THREE.BoxGeometry(0.42,3.8,0.42),material);support.position.set(x-length/2+2,floorY-2,z);group.add(support);
+    const support2=support.clone();support2.position.x=x+length/2-2;group.add(support2);
+  } else {
+    const rope=new THREE.MeshStandardMaterial({color:0x44342b,roughness:1});
+    for(const side of [-1,1]){
+      const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,length,7),rope);rail.rotation.z=Math.PI/2;rail.position.set(x,floorY+1.15,z+side*(width/2+0.25));group.add(rail);
+      for(let i=0;i<=count;i+=3){const post=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.25,0.12),rope);post.position.set(x-length/2+i*1.72,floorY+0.62,z+side*(width/2+0.25));group.add(post);}
+    }
+  }
+  scene.add(group);envObjects.push({mesh:group});
+}
+
+function buildMountainRoute(ox,oz){
+  const route=getMountainRouteLayout(ox,oz),floorY=-8;
+  mountainFallZones.push(...route.fallZones);
+  const rock=new THREE.MeshStandardMaterial({color:0x38363a,roughness:0.98,bumpMap:createSurfaceTextures().wallBump,bumpScale:0.1});
+  const wetRock=new THREE.MeshStandardMaterial({color:0x293536,roughness:0.72,metalness:0.08,emissive:0x061112,emissiveIntensity:0.18});
+  const wood=new THREE.MeshStandardMaterial({color:0x49362a,roughness:0.9});
+  const cave=new THREE.Group();
+  addMountainFloorPatch(-48,27,64,26,floorY,rock);
+  addMountainFloorPatch(-22,27,26,26,floorY,wetRock);
+  addMountainFloorPatch(24,27,20,26,floorY,rock);
+  addMountainFloorPatch(route.spiralX,route.spiralZ,22,24,floorY,rock);
+  addMountainCliffWall(cave,-70,-4.9,14.2,24,6,0.6,rock);
+  addMountainCliffWall(cave,-33.8,-4.9,14.2,33,6,0.6,rock);
+  addMountainCliffWall(cave,-49,-4.9,39.8,65,6,0.6,rock);
+  addMountainCliffWall(cave,-81,-4.9,27,0.6,6,26,rock);
+  addMountainCliffWall(cave,45,-4.9,27,0.6,6,26,rock);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(35,0.35,26),rock);roof.position.set(-23.5,-2.4,27);cave.add(roof);
+  const campRoof=new THREE.Mesh(new THREE.BoxGeometry(20,0.35,26),rock);campRoof.position.set(24,-2.4,27);cave.add(campRoof);
+  for(let i=0;i<9;i++){
+    const spike=new THREE.Mesh(new THREE.ConeGeometry(0.38+(i%3)*0.12,1.8+(i%2)*0.7,7),rock);
+    spike.position.set(-39+(i%5)*6,-3.15,17+Math.floor(i/5)*15);spike.rotation.x=Math.PI;spike.castShadow=true;cave.add(spike);
+  }
+  scene.add(cave);envObjects.push({mesh:cave});
+
+  addWalkableStaircase(route.wellX,route.wellZ,0,floorY,21,4.8,'stone');
+  buildMountainBridge(-1,27,floorY,3.7,30,wood,true);
+  addMountainSpiralStair(route.spiralX,route.spiralZ,floorY,0);
+  buildMountainBridge(route.bridgeX,route.bridgeZ,FLOOR_HEIGHT,5.1,31,wood,false);
+
+  const trailMaterial=new THREE.MeshStandardMaterial({color:0x565047,roughness:0.95});
+  addMountainFloorPatch(route.spiralX,route.spiralZ,10.8,10.8,0,trailMaterial);
+  for(let i=0;i<7;i++){
+    const stone=new THREE.Mesh(new THREE.DodecahedronGeometry(0.72+(i%3)*0.14,0),trailMaterial);
+    stone.position.set(route.valleyX+7+i*6,0.15,route.valleyZ-5-i*2.3);stone.scale.set(1.45,0.45,0.85);stone.rotation.y=i*0.43;stone.receiveShadow=true;cave.add(stone);
+  }
+
+  const sceneDress=new THREE.Group(),boulderGeo=new THREE.DodecahedronGeometry(1.4,0),pineGeo=new THREE.ConeGeometry(1.8,5.5,6);
+  const pineMat=new THREE.MeshStandardMaterial({color:0x24342b,roughness:1}),trunkMat=new THREE.MeshStandardMaterial({color:0x34281f,roughness:1});
+  for(let i=0;i<8;i++){
+    const px=route.valleyX-11+(i%4)*7,pz=route.valleyZ-5+Math.floor(i/4)*9;
+    const boulder=new THREE.Mesh(boulderGeo,rock);boulder.position.set(px,0.55,pz);boulder.scale.set(1.4+0.2*(i%3),0.8,1.1);boulder.rotation.y=i*0.68;sceneDress.add(boulder);
+  }
+  for(const [tx,tz] of [[route.valleyX-12,route.valleyZ+8],[route.valleyX+12,route.valleyZ-8],[route.valleyX+20,route.valleyZ+3]]){
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.45,3.6,6),trunkMat);trunk.position.set(tx,1.8,tz);sceneDress.add(trunk);
+    const pine=new THREE.Mesh(pineGeo,pineMat);pine.position.set(tx,5.5,tz);pine.castShadow=false;sceneDress.add(pine);
+  }
+  const tentMat=new THREE.MeshStandardMaterial({color:0x473b36,roughness:1,side:THREE.DoubleSide});
+  for(const [tx,tz] of [[route.valleyX+2,route.valleyZ+5],[route.valleyX+10,route.valleyZ+4]]){
+    const tent=new THREE.Mesh(new THREE.ConeGeometry(3.2,3.7,4),tentMat);tent.position.set(tx,1.85,tz);tent.rotation.y=Math.PI/4;sceneDress.add(tent);
+  }
+  const fire=new THREE.Group();
+  for(let i=0;i<5;i++){const log=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,1.55,7),wood);log.rotation.z=Math.PI/2;log.rotation.y=i*Math.PI/5;log.position.set(route.valleyX+7,0.22,route.valleyZ+1);fire.add(log);}
+  const glow=new THREE.PointLight(0xc05c24,1.3,13,2);glow.position.set(route.valleyX+7,1.2,route.valleyZ+1);fire.add(glow);sceneDress.add(fire);
+  scene.add(sceneDress);envObjects.push({mesh:sceneDress});
+
+  const puddle=new THREE.Mesh(new THREE.CircleGeometry(2.8,24),new THREE.MeshStandardMaterial({color:0x1a2a2c,roughness:0.25,metalness:0.2,transparent:true,opacity:0.72}));
+  puddle.rotation.x=-Math.PI/2;puddle.position.set(-33,floorY+0.015,27);cave.add(puddle);
+  const slime=new THREE.Mesh(new THREE.CircleGeometry(1.6,20),new THREE.MeshStandardMaterial({color:0x3b5936,roughness:0.35,transparent:true,opacity:0.62,emissive:0x17220c}));
+  slime.rotation.x=-Math.PI/2;slime.position.set(22,floorY+0.02,31);cave.add(slime);
+  const torchMat=new THREE.MeshStandardMaterial({color:0x6f5231,emissive:0x321706,emissiveIntensity:0.45});
+  for(const [tx,tz] of [[-40,18],[-19,36],[21,18]]){
+    const torch=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.18,1.2,7),torchMat);torch.position.set(tx,-5.8,tz);cave.add(torch);
+    const light=new THREE.PointLight(0x8a4624,0.55,9,2);light.position.set(tx,-4.9,tz);cave.add(light);
+  }
+  const random=seededRandom(0x4d4f554e);
+  addBatSwarm({floorY},-28,27,random);addBatSwarm({floorY},-47,27,random);
+  spawnEnemy('spider',-35,23,floorY);spawnEnemy('spider',-22,31,floorY);
+  spawnEnemy('hunter',20,23,floorY);spawnEnemy('hunter',28,32,floorY);
+  spawnChest(route.lookoutX+6,route.lookoutZ+5,FLOOR_HEIGHT);
+  if(!campaignProgress.brokenSecrets['mountain-cave-reward']){
+    const secretX=ox+ROOM_WORLD_SIZE*3.7+7,secretZ=oz+ROOM_WORLD_SIZE*0.8-9;
+    const secretLight=new THREE.PointLight(0x5a78b8,0.85,10,2);secretLight.position.set(secretX,2,secretZ);scene.add(secretLight);envObjects.push({mesh:secretLight});
+    spawnChest(secretX,secretZ,0);
+    const chest=chests[chests.length-1];chest.uniqueRewardKey='mountain-cave-reward';chest.loot={type:'gem',gem:BLOOD_GEMS[2]};
+    const crystalMat=new THREE.MeshStandardMaterial({color:0x586da3,emissive:0x182a57,emissiveIntensity:0.7,roughness:0.35,metalness:0.35});
+    const crystalGeo=new THREE.OctahedronGeometry(0.72,0),crystals=new THREE.Group();
+    for(let i=0;i<4;i++){const crystal=new THREE.Mesh(crystalGeo,crystalMat);crystal.position.set(secretX-3+i*1.8,0.8+(i%2)*0.5,secretZ-3);crystal.rotation.z=0.2*(i%2?1:-1);crystals.add(crystal);}
+    scene.add(crystals);envObjects.push({mesh:crystals});
+  }
+  for(let i=0;i<9;i++){
+    const t=i/8,px=route.spiralX+(route.gateX-route.spiralX)*t,pz=route.spiralZ+(route.gateZ-route.spiralZ)*t;
+    const trailStone=new THREE.Mesh(new THREE.DodecahedronGeometry(0.62,0),trailMaterial);
+    trailStone.position.set(px,0.08,pz);trailStone.scale.set(1.65,0.16,1.05);trailStone.rotation.y=t*1.4;trailStone.receiveShadow=true;scene.add(trailStone);envObjects.push({mesh:trailStone});
+  }
+}
+
 function buildCampaignTargets(locationIndex,ox,oz){
   if(locationIndex===0)addBreakableStoneWall('street-court',ox+ROOM_WORLD_SIZE*2.5,oz+ROOM_WORLD_SIZE*0.55,0);
   if(locationIndex===2){
     addBreakableStoneWall('mountain-cave',ox+ROOM_WORLD_SIZE*3.7,oz+ROOM_WORLD_SIZE*0.8,0);
-    const x=ox+STAGE_WORLD_WIDTH/2,z=oz+STAGE_WORLD_DEPTH/2-10,y=0;
+    const route=getMountainRouteLayout(ox,oz),x=route.gateX,z=route.gateZ,y=0;
     const frame=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:0x343039,metalness:0.65,roughness:0.56}),gold=new THREE.MeshStandardMaterial({color:0x80613b,metalness:0.8,roughness:0.35});
     for(const side of [-1,1]){const post=new THREE.Mesh(new THREE.BoxGeometry(0.8,8,0.8),mat);post.position.set(side*4,4,0);frame.add(post);}
     const lintel=new THREE.Mesh(new THREE.BoxGeometry(8.8,0.8,0.8),mat);lintel.position.y=8;frame.add(lintel);
@@ -756,6 +939,30 @@ function buildCampaignTargets(locationIndex,ox,oz){
     chainTarget={x,y:y+6.5,z:z+0.3,mesh:chain,gate:bars,collider:gateCollider};
     worldInteractables.push({type:'campaignExit',destination:3,x,z:z-2,y});
   }
+}
+function buildCastleInterior(floorRooms,bossRoom){
+  const webMat=new THREE.MeshBasicMaterial({color:0xb8b2b7,transparent:true,opacity:0.28,side:THREE.DoubleSide,depthWrite:false});
+  const webGeo=new THREE.BufferGeometry(),points=[];
+  for(let i=0;i<7;i++){const a=i*Math.PI/3;points.push(0,0,0,Math.cos(a)*3,Math.sin(a)*3,0);}
+  for(let r=1;r<=3;r++)for(let i=0;i<6;i++){const a=i*Math.PI/3,b=(i+1)*Math.PI/3;points.push(Math.cos(a)*r,Math.sin(a)*r,0,Math.cos(b)*r,Math.sin(b)*r,0);}
+  webGeo.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
+  const webs=new THREE.Group();
+  [[bossRoom.roomX+1,bossRoom.roomZ+1,Math.PI/2],[bossRoom.roomX+ROOM_WORLD_SIZE-1,bossRoom.roomZ+1,Math.PI/2],[bossRoom.roomX+1,bossRoom.roomZ+ROOM_WORLD_SIZE-1,0],[bossRoom.roomX+ROOM_WORLD_SIZE-1,bossRoom.roomZ+ROOM_WORLD_SIZE-1,0]].forEach(([x,z,yaw])=>{
+    const web=new THREE.LineSegments(webGeo,webMat);web.position.set(x,FLOOR_LEVELS[1]+7,z);web.rotation.y=yaw;webs.add(web);
+  });
+  const cocoonMat=new THREE.MeshStandardMaterial({color:0x665b5c,roughness:0.95});
+  [[bossRoom.roomX+12,bossRoom.roomZ+13],[bossRoom.roomX+ROOM_WORLD_SIZE-13,bossRoom.roomZ+ROOM_WORLD_SIZE-12]].forEach(([x,z])=>{
+    const cocoon=new THREE.Mesh(new THREE.SphereGeometry(0.75,10,8),cocoonMat);cocoon.position.set(x,FLOOR_LEVELS[1]+1.6,z);cocoon.scale.y=2.1;cocoon.castShadow=true;webs.add(cocoon);
+    const bone=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,1.4,6),cocoonMat);bone.position.set(x+1,FLOOR_LEVELS[1]+0.3,z+1);bone.rotation.z=0.7;webs.add(bone);
+  });
+  scene.add(webs);envObjects.push({mesh:webs});
+  [floorRooms[0][2],floorRooms[0][7]].forEach(room=>{
+    const point=roomSpawnPoint(room,room.roomIndex+4901);
+    [-1,1].forEach(side=>{
+      const before=enemies.length;spawnEnemy('spider',point.x+side*1.25,point.z,room.floorY);
+      const ambush=enemies[before];if(ambush){ambush.ceilingAmbush=true;ambush.ambushRange=8;ambush.ambushDrop=0;}
+    });
+  });
 }
 function damageBreakableBarrier(attack){
   if(!hunter)return;
@@ -997,6 +1204,7 @@ function clearWorld(){
   bloodStainMesh = null;
   enemies = []; wallMeshes = []; wallColliders=[]; floorMeshes=[]; stairs=[]; chests = []; lanterns = []; envObjects = [];
   bloodParticles=[];dustMotes = []; ambientCreatures=[]; attackTrails = []; parryIndicators = []; toolProjectiles = [];
+  mountainWalkableSurfaces=[];mountainFallZones=[];mountainFloorVoids=[];
   doll = null; workshop = null; waystone = null;
   nearbyLantern = null; nearbyDoll = false; nearbyWorldInteractable=null;
   shortcutGates=[]; stageElevators=[]; worldInteractables=[]; chainTarget=null; breakableBarriers=[];

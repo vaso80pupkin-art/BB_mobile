@@ -98,6 +98,7 @@ let enemies = [], wallMeshes = [], wallColliders = [], floorMeshes = [], stairs 
 let bloodParticles = [], dustMotes = [], rainDrops = [];
 let attackTrails = [], parryIndicators = [], toolProjectiles = [];
 let ambientCreatures = [], cryptAtmosphereAssets = null;
+let mountainWalkableSurfaces = [], mountainFallZones = [], mountainFloorVoids = [];
 let shortcutGates = [], stageElevators = [], worldInteractables = [], nearbyWorldInteractable = null;
 let bloodStainMesh = null;
 let doll = null, workshop = null, waystone = null;
