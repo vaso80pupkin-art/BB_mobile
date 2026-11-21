@@ -635,7 +635,7 @@ function createGothicWall(worldX,worldY,worldZ,w,h,d,isBoundary){
     arch.position.set(worldX, worldY+h/2+0.15, worldZ);
     arch.castShadow = true;
     scene.add(arch);
-    const deco = {userData:{cx:worldX, cy:h+0.15, cz:worldZ, minX:1, maxX:-1, minZ:1, maxZ:-1}, material:archMat, visible:true, isDeco:true, isMesh:true, remove(){ scene.remove(arch); }};
+    const deco = {mesh:arch,userData:{cx:worldX, cy:h+0.15, cz:worldZ, minX:1, maxX:-1, minZ:1, maxZ:-1}, material:archMat, visible:true, isDeco:true, isMesh:true, remove(){ scene.remove(arch); }};
     wallMeshes.push(deco);
   }
   return wall;
@@ -769,24 +769,76 @@ function updateWallTransparency(){
   });
 }
 
+function collectSharedWorldResources(){
+  const shared={geometries:new Set(),materials:new Set()};
+  const addRoot=root=>{
+    if(!root||typeof root.traverse!=='function') return;
+    root.traverse(node=>{
+      if(node.geometry) shared.geometries.add(node.geometry);
+      if(node.material){
+        const materials=Array.isArray(node.material)?node.material:[node.material];
+        materials.forEach(material=>{if(material) shared.materials.add(material);});
+      }
+    });
+  };
+  const addCache=cache=>Object.values(cache||{}).forEach(resource=>{
+    if(resource&&resource.isBufferGeometry) shared.geometries.add(resource);
+    if(resource&&resource.isMaterial) shared.materials.add(resource);
+  });
+  addRoot(hunterModelSource);
+  addRoot(spiderModelBundle&&spiderModelBundle.scene);
+  addRoot(spiderFallbackBundle&&spiderFallbackBundle.scene);
+  Object.values(extraModelBundles||{}).forEach(bundle=>addRoot(bundle&&bundle.scene));
+  addCache(cryptAtmosphereAssets);
+  addCache(horizonAssets);
+  return shared;
+}
+
+function disposeWorldObjectResources(root,shared,disposed){
+  if(!root||typeof root.traverse!=='function') return;
+  root.traverse(node=>{
+    const geometry=node.geometry;
+    if(geometry&&!shared.geometries.has(geometry)&&!disposed.geometries.has(geometry)){
+      disposed.geometries.add(geometry);
+      geometry.dispose();
+    }
+    if(node.material){
+      const materials=Array.isArray(node.material)?node.material:[node.material];
+      materials.forEach(material=>{
+        if(material&&!shared.materials.has(material)&&!disposed.materials.has(material)){
+          disposed.materials.add(material);
+          material.dispose();
+        }
+      });
+    }
+  });
+}
+
 function clearWorld(){
   if(!scene) return;
-  clearHunterEnemyAttachQueue();
-  [...enemies,...chests,...lanterns,...envObjects].forEach(o=>{ if(o && o.mesh) scene.remove(o.mesh); });
-  floorMeshes.forEach(floor=>scene.remove(floor));
-  wallMeshes.forEach(w=>{ if(w.isDeco && typeof w.remove === 'function') w.remove(); else scene.remove(w); });
-  dustMotes.forEach(d=>scene.remove(d.mesh));
-  ambientCreatures.forEach(creature=>scene.remove(creature.mesh));
-  attackTrails.forEach(t=>{ scene.remove(t.mesh); if(t.light) scene.remove(t.light); });
-  parryIndicators.forEach(p=>scene.remove(p.mesh));
-  toolProjectiles.forEach(p=>scene.remove(p.mesh));
-  if(doll) scene.remove(doll);
-  if(workshop) scene.remove(workshop);
-  if(waystone) scene.remove(waystone);
-  if(bloodStainMesh) scene.remove(bloodStainMesh);
+  clearEnemyModelAttachQueue();
+  const shared=collectSharedWorldResources(),disposed={geometries:new Set(),materials:new Set()};
+  const removeObject=object=>{
+    if(!object) return;
+    scene.remove(object);
+    disposeWorldObjectResources(object,shared,disposed);
+  };
+  [...enemies,...chests,...lanterns,...envObjects].forEach(object=>removeObject(object&&object.mesh));
+  floorMeshes.forEach(removeObject);
+  wallMeshes.forEach(wall=>removeObject(wall&&(wall.mesh||(!wall.isDeco?wall:null))));
+  dustMotes.forEach(mote=>removeObject(mote&&mote.mesh));
+  ambientCreatures.forEach(creature=>removeObject(creature&&creature.mesh));
+  attackTrails.forEach(trail=>{removeObject(trail&&trail.mesh);if(trail&&trail.light) scene.remove(trail.light);});
+  parryIndicators.forEach(indicator=>removeObject(indicator&&indicator.mesh));
+  toolProjectiles.forEach(projectile=>removeObject(projectile&&projectile.mesh));
+  bloodParticles.forEach(particle=>removeObject(particle&&particle.mesh));
+  removeObject(doll);
+  removeObject(workshop);
+  removeObject(waystone);
+  removeObject(bloodStainMesh);
   bloodStainMesh = null;
   enemies = []; wallMeshes = []; wallColliders=[]; floorMeshes=[]; stairs=[]; chests = []; lanterns = []; envObjects = [];
-  dustMotes = []; ambientCreatures=[]; attackTrails = []; parryIndicators = []; toolProjectiles = [];
+  bloodParticles=[];dustMotes = []; ambientCreatures=[]; attackTrails = []; parryIndicators = []; toolProjectiles = [];
   doll = null; workshop = null; waystone = null;
   nearbyLantern = null; nearbyDoll = false; nearbyWorldInteractable=null;
   shortcutGates=[]; stageElevators=[]; worldInteractables=[];
