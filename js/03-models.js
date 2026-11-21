@@ -606,9 +606,8 @@ function attachHunterEnemyModel(enemy){
 }
 
 const ENEMY_MODEL_ASSETS = {
-  rogach: {path:'./MOB/rogach.glb',height:4.4,footprint:5.4},
-  bloodStarved: {path:'./MOB/I%20am.glb',height:7.2,footprint:8.2},
-  moonPresence: {path:'./MOB/spider/spider1.glb',height:8.5,footprint:11.5,fallback:'bloodStarved'}
+  paladin: {path:'./MOB/paladin.glb',height:4.4,footprint:5.4},
+  moonPresence: {path:'./MOB/spider/spider1.glb',height:8.5,footprint:11.5,fallback:'paladin'}
 };
 
 function findEmissiveMaterial(root){
@@ -627,13 +626,14 @@ function attachConfiguredEnemyModel(enemy,key){
   if(!asset || !bundle) return;
   const boss=enemy.type==='boss';
   let height=asset.height, footprint=asset.footprint;
-  if(key==='rogach' && boss){ height=8.2; footprint=9.8; }
-  const visual=fitVisualModel(bundle.scene,height,footprint,false,boss);
+  if(key==='paladin' && boss){ height=8.2; footprint=9.8; }
+  const clips=bundle.animations||[];
+  const visual=fitVisualModel(bundle.scene,height,footprint,clips.length>0,boss);
   if(!visual) return;
   setEnemyModelLayers(enemy,false);
   enemy.mesh.add(visual);
-  const rigType=key==='rogach'?'quadruped':(key==='moonPresence'?'spider':'humanoid');
-  enemy.proceduralRig=createProceduralSkeleton(visual,rigType);
+  const rigType=key==='moonPresence'?'spider':'humanoid';
+  enemy.proceduralRig=clips.length?null:createProceduralSkeleton(visual,rigType);
   if(!enemy.proceduralRig) setEnemyModelLayers(enemy,true);
   enemy.modelRoot=visual;
   enemy.modelBaseY=visual.position.y;
@@ -643,6 +643,11 @@ function attachConfiguredEnemyModel(enemy,key){
   enemy.visualModelKey=key;
   enemy.hpBar.bg.position.y=enemy.modelVisualHeight+(boss?0.85:0.55);
   enemy.hpBar.fill.position.y=enemy.modelVisualHeight+(boss?0.85:0.55);
+  enemy.modelClips=clips;
+  enemy.modelMixer=clips.length?new THREE.AnimationMixer(visual):null;
+  enemy.modelCurrentAction=null;
+  enemy.modelActionName='';
+  if(enemy.modelMixer) setSpiderAnimation(enemy,true);
   if(boss){
     enemy.material=findEmissiveMaterial(visual);
     if(enemy.phase2 && enemy.material) enemy.material.emissive.setHex(0x440000);
@@ -745,6 +750,8 @@ function loadVisualAssets(){
     console.warn('[BB] Не удалось загрузить анимированную модель паука.', error);
     loadSpiderFallbackModel();
   });
+  const queuedKeys=new Set(enemies.map(enemy=>enemy.visualModelKey).filter(key=>key&&key!=='spider'));
+  queuedKeys.forEach(requestEnemyVisualModel);
 }
 
 function loadSpiderFallbackModel(){

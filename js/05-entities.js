@@ -158,12 +158,12 @@ function spawnEnemy(type,x,z,floorY=0){
     legs: legs,
     animPhase: Math.random() * Math.PI * 2
   };
-  if(type==='beast') enemy.visualModelKey='rogach';
+  if(type==='beast') enemy.visualModelKey='paladin';
   if(type==='hunter') enemy.visualModelKey='skullHunter';
   enemies.push(enemy);
   if(type === 'spider') attachSpiderModel(enemy);
   else if(type === 'hunter') requestEnemyVisualModel('skullHunter');
-  else if(type === 'beast') requestEnemyVisualModel('rogach');
+  else if(type === 'beast') requestEnemyVisualModel('paladin');
 }
 function spawnBoss(name,x,z,floorY=0){
   if(!scene) return;
@@ -226,8 +226,8 @@ function spawnBoss(name,x,z,floorY=0){
     legs: legs,
     animPhase: Math.random() * Math.PI * 2
   };
-  bossEnemy.visualModelKey = name==='CLERIC BEAST' ? 'rogach'
-    : name==='BLOOD-STARVED BEAST' ? 'bloodStarved'
+  bossEnemy.visualModelKey = name==='CLERIC BEAST' ? 'paladin'
+    : name==='BLOOD-STARVED BEAST' ? 'paladin'
     : name==='SHADOW OF YHARNAM' ? 'skullHunter'
     : name==='MOON PRESENCE' ? 'moonPresence' : '';
   enemies.push(bossEnemy);
