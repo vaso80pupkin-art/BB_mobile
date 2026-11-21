@@ -276,7 +276,7 @@ function spawnLantern(x,z,isRespawn=false,floorY=0){
     g.add(glass);
   }
   const light = new THREE.PointLight(isRespawn?0xddc088:0xdd9933, isRespawn?8:6, isRespawn?40:32, 2);
-  light.position.y = 7.05; light.castShadow = true; g.add(light);
+  light.position.y = 7.05; light.castShadow = false; g.add(light);
   const glowSprite = new THREE.Sprite(getLanternGlowMaterial().clone());
   glowSprite.position.y = 7.05;
   glowSprite.scale.set(isRespawn?6.2:4.8,isRespawn?6.2:4.8,1);
@@ -331,6 +331,8 @@ function setupMenuScene(){
 }
 
 function loadLocation(idx){
+  idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
+  if(!canEnterLocation(idx)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return false;}
   clearWorld();
   gameMode = GameMode.PLAYING;
   currentLocation = idx;
@@ -374,7 +376,10 @@ function loadLocation(idx){
   for(let floor=0;floor<FLOOR_LEVELS.length;floor++) addShortcutGate(shortcutX,shortcutZ,FLOOR_LEVELS[floor],idx,floor);
   if(idx===0) buildOedonChapelFoyer(floorRooms[0][0],FLOOR_LEVELS[0]);
   scatterCryptAtmosphere(floorRooms,idx);
+  buildLocationLandmarks(idx,ox,oz);
+  buildCampaignTargets(idx,ox,oz);
   createDistantHorizon(idx);
+  rebuildWallCollisionGrid();
   spawnDustMotes(60);
   const startRoom=floorRooms[0][0];
   const spawnX=idx===0?startRoom.roomX+cellSize*3.5:ox+cellSize*1.5;
@@ -427,8 +432,6 @@ function loadLocation(idx){
     createBloodStain(bloodStain.x,bloodStain.z,bloodStain.echoes,bloodStain.loc,bloodStain.floorY||0);
   }
 
-  setTimeout(()=>showTutorial('Свайп по пустой части — поворот камеры'), 2500);
-  setTimeout(()=>showTutorial('Двойной тап — захват цели'), 5500);
-  setTimeout(()=>showTutorial('Заряжайте атаку для ×3 урона!'), 8500);
+  worldTutorialTimers=[2500,5500,8500].map((delay,i)=>setTimeout(()=>showTutorial(['Свайп по пустой части — поворот камеры','Двойной тап — захват цели','Заряжайте атаку для ×3 урона!'][i]),delay));
   applyBrightness();
 }

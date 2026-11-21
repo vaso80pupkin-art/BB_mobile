@@ -226,8 +226,31 @@ function updateEnemies(dt,time){
     }
   });
 }
+let wallCollisionGrid=new Map();
+const WALL_GRID_SIZE=18;
+function wallGridKey(x,z){return Math.floor(x/WALL_GRID_SIZE)+','+Math.floor(z/WALL_GRID_SIZE);}
+function rebuildWallCollisionGrid(){
+  const grid=new Map();
+  for(const wall of wallColliders){
+    const x0=Math.floor(wall.minX/WALL_GRID_SIZE),x1=Math.floor(wall.maxX/WALL_GRID_SIZE);
+    const z0=Math.floor(wall.minZ/WALL_GRID_SIZE),z1=Math.floor(wall.maxZ/WALL_GRID_SIZE);
+    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+      const key=wallGridKey(x*WALL_GRID_SIZE+WALL_GRID_SIZE/2,z*WALL_GRID_SIZE+WALL_GRID_SIZE/2);
+      if(!grid.has(key))grid.set(key,[]);grid.get(key).push(wall);
+    }
+  }
+  wallCollisionGrid=grid;
+}
 function checkWall(nx,nz,radius=0.55,entityY=hunter?hunter.position.y:0,bodyHeight=2.2){
-  for(const w of wallColliders){
+  const candidates=new Set();
+  if(wallCollisionGrid.size){
+    for(let x=Math.floor((nx-radius)/WALL_GRID_SIZE);x<=Math.floor((nx+radius)/WALL_GRID_SIZE);x++)
+      for(let z=Math.floor((nz-radius)/WALL_GRID_SIZE);z<=Math.floor((nz+radius)/WALL_GRID_SIZE);z++){
+        const bucket=wallCollisionGrid.get(wallGridKey(x*WALL_GRID_SIZE+WALL_GRID_SIZE/2,z*WALL_GRID_SIZE+WALL_GRID_SIZE/2));
+        if(bucket)bucket.forEach(w=>candidates.add(w));
+      }
+  } else wallColliders.forEach(w=>candidates.add(w));
+  for(const w of candidates){
     if(entityY+bodyHeight<w.minY || entityY>w.maxY) continue;
     if(nx+radius>w.minX && nx-radius<w.maxX && nz+radius>w.minZ && nz-radius<w.maxZ) return true;
   }
@@ -511,7 +534,7 @@ function loop(){
   checkLanternProximity();
   checkWorldInteractableProximity();
   checkBloodStainPickup();
-  updateMinimap();
+  if(!window._minimapUpdateAt||rawTime-window._minimapUpdateAt>0.12){updateMinimap();window._minimapUpdateAt=rawTime;}
   for(let i = bloodParticles.length-1;i>=0;i--){
     const bp = bloodParticles[i];
     bp.life -= dt;

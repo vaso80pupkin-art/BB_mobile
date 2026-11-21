@@ -223,11 +223,12 @@ function openTeleportMenu(){
   LOCATIONS.forEach((name, i) => {
     const b = document.createElement('button');
     b.className = 'dream-action tp-btn';
-    const unlocked = i < player.unlockedLocations;
+    const unlocked = canEnterLocation(i);
     b.textContent = (unlocked ? '🕯 ' : '🔒 ') + name;
     if(i === currentLocation) b.style.borderColor = '#dd9a3a';
     b.disabled = !unlocked;
     b.addEventListener('click', () => {
+      if(!canEnterLocation(i)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return;}
       closeTeleportMenu();
       stageChoiceOpen = false;
       currentLocation = i;
@@ -859,6 +860,7 @@ function performAttack(chargeDur=0){
 function resolveAttackHits(){
   if(!player.currentAttack || !hunter) return;
   const ca = player.currentAttack;
+  damageBreakableBarrier(ca);
   const pAng = ca.facingAngle ?? hunter.rotation.y;
   const weaponBonus = 1 + player.weaponLevel * 0.08;
   const insightBonus = 1 + player.insight * 0.02;
@@ -929,7 +931,8 @@ function resolveAttackHits(){
   });
 }
 function killEnemy(enemy){
-  if(!enemy) return;
+  if(!enemy || enemy._defeated) return;
+  enemy._defeated=true;
   if(enemy.hpBar){ scene.remove(enemy.hpBar.bg); scene.remove(enemy.hpBar.fill); }
   scene.remove(enemy.mesh);
   enemies = enemies.filter(e=>e!==enemy);
@@ -943,7 +946,11 @@ function killEnemy(enemy){
     sfx('insight');
     notify('+1 👁 ПРОНИЦАТЕЛЬНОСТЬ');
     unlockAchievement('first_boss');
-    player.unlockedLocations=Math.max(player.unlockedLocations,currentLocation===0?3:4);
+    if(currentLocation===0) campaignProgress.cityBoss=true;
+    else if(currentLocation===1) campaignProgress.buildingBoss=true;
+    else if(currentLocation===2) campaignProgress.mountainBoss=true;
+    player.unlockedLocations=Math.max(player.unlockedLocations,Math.min(4,currentLocation+2));
+    SaveSystem.save();
   }
   const shardChance = enemy.type === 'boss' ? 1.0 : 0.15;
   if(Math.random() < shardChance){
@@ -964,7 +971,7 @@ function killEnemy(enemy){
       if(currentLocation!==defeatedLocation) return;
       if(currentLocation < LOCATIONS.length-1){
         stageChoiceOpen=true;gameMode=GameMode.PAUSED;
-        notify(currentLocation===0?'ОТКРЫТЫ ДВА ПУТИ — ВЫБЕРИТЕ ЭТАП':'НОВАЯ ЛОКАЦИЯ ОТКРЫТА');
+        notify(currentLocation===0?'ПУТЬ В ЗДАНИЕ ОТКРЫТ':'НОВАЯ ЛОКАЦИЯ ОТКРЫТА');
         openTeleportMenu();
       } else {
         player.ngPlus++;unlockAchievement('ng_plus');notify('🌑 NG+'+player.ngPlus+' НАЧИНАЕТСЯ!');loadLocation(0);
@@ -1022,6 +1029,11 @@ function performGunshot(){
   hunterParts.leftArm.rotation.x = -1.1;
   setTimeout(()=>hunterParts.leftArm.rotation.x = 0,300);
   const pAng = hunter.rotation.y;
+  if(currentLocation===2 && !campaignProgress.castleChainShot && chainTarget){
+    const dx=chainTarget.x-hunter.position.x,dz=chainTarget.z-hunter.position.z,d=Math.hypot(dx,dz);
+    let diff=Math.atan2(dx,dz)-pAng;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
+    if(d<24&&Math.abs(diff)<Math.PI/10){campaignProgress.castleChainShot=true;chainTarget.mesh.visible=false;if(chainTarget.gate)chainTarget.gate.visible=false;SaveSystem.save();sfx('break');notify('ЦЕПЬ ОБОРВАНА — ВОРОТА ЗАМКА ОТКРЫТЫ');player.screenShake=0.55;}
+  }
   const bltBonus = player.stats.blt*0.8;
   enemies.forEach(enemy=>{
     if(Math.abs(enemy.mesh.position.y-hunter.position.y)>FLOOR_HEIGHT*0.4) return;

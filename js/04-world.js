@@ -370,6 +370,13 @@ function addFlySwarm(x,z,floorY,random){
 }
 
 function scatterCryptAtmosphere(floorRooms,locationIndex){
+  if(locationIndex!==3){
+    if(locationIndex===0||locationIndex===2) floorRooms.flat().forEach(room=>{
+      const selected=locationIndex===0?(room.floorIndex===0&&[2,7].includes(room.roomIndex)):(room.floorIndex===0&&[2,7].includes(room.roomIndex))||(room.floorIndex===1&&room.roomIndex===3);
+      if(selected){const random=seededRandom((locationIndex+11)*65537+(room.floorIndex+1)*7919+(room.roomIndex+1)*31337);addBatSwarm(room,room.roomX+ROOM_WORLD_SIZE/2,room.roomZ+ROOM_WORLD_SIZE/2,random);}
+    });
+    return;
+  }
   floorRooms.flat().forEach(room=>{
     if(room.floorIndex===0&&room.roomIndex===0) return;
     const random=seededRandom((locationIndex+11)*65537+(room.floorIndex+1)*7919+(room.roomIndex+1)*31337);
@@ -394,7 +401,10 @@ function scatterCryptAtmosphere(floorRooms,locationIndex){
   });
 }
 
+let _ambientUpdateTime=0;
 function updateAmbientCreatures(time){
+  if(time-_ambientUpdateTime<0.05) return;
+  _ambientUpdateTime=time;
   ambientCreatures.forEach(creature=>{
     if(creature.type==='bat'){
       const orbit=time*creature.speed+creature.phase+creature.offset;
@@ -524,6 +534,7 @@ function updateStageMechanics(dt){
       elevator.currentY=elevator.targetY;elevator.moving=false;
       if(elevator.rider){
         hunter.position.y=elevator.currentY+0.4;
+        if(currentLocation===1&&!campaignProgress.liftActivated){campaignProgress.liftActivated=true;SaveSystem.save();notify('ЛИФТ АКТИВИРОВАН — ВЕРХНИЙ ВЫХОД ДОСТУПЕН');}
         currentFloorIndex=elevator.currentY>=(elevator.lowerY+elevator.upperY)/2?1:0;
         updateStageLocationLabel(true);
       }
@@ -551,6 +562,7 @@ function checkWorldInteractableProximity(){
   }
   if(nearbyWorldInteractable){
     prompt.textContent=nearbyWorldInteractable.type==='gateLever'?'РЫЧАГ — ОТКРЫТЬ КОРОТКИЙ ПУТЬ':
+      nearbyWorldInteractable.type==='secretWall'?'КАМНИ ПОКРЫТЫ ТРЕЩИНАМИ — ПРОБЕЙТЕ ИХ ОРУЖИЕМ':
       nearbyWorldInteractable.type==='elevatorCall'?'ВЫЗВАТЬ ЛИФТ':
       nearbyWorldInteractable.elevator.moving?'ЛИФТ ДВИЖЕТСЯ':'ЛИФТ — ПОДЪЁМ / СПУСК';
     prompt.classList.add('show');
@@ -560,11 +572,13 @@ function checkWorldInteractableProximity(){
 function activateNearbyWorldObject(){
   const item=nearbyWorldInteractable;
   if(!item||gameMode!==GameMode.PLAYING) return;
+  if(item.type==='secretWall'){notify('ЗАВАЛ НУЖНО РАЗРУШИТЬ УДАРОМ ОРУЖИЯ');return;}
   if(item.type==='gateLever'){
     const gate=item.gate;
     if(gate.opened){notify('КОРОТКИЙ ПУТЬ УЖЕ ОТКРЫТ');return;}
-    gate.opened=true;gate.group.remove(gate.panel);wallColliders=wallColliders.filter(box=>box!==gate.collider);
+    gate.opened=true;gate.group.remove(gate.panel);wallColliders=wallColliders.filter(box=>box!==gate.collider);rebuildWallCollisionGrid();
     gate.levers.forEach(lever=>lever.handle.material.color.setHex(0x44bb66));
+    rebuildWallCollisionGrid();
     worldInteractables=worldInteractables.filter(entry=>entry.gate!==gate);
     sfx('lever');notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
     return;
@@ -623,7 +637,7 @@ function createGothicWall(worldX,worldY,worldZ,w,h,d,isBoundary){
   const mat = new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.wall,bumpMap:surfaces.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
   wall.position.set(worldX,worldY,worldZ);
-  wall.castShadow = true; wall.receiveShadow = true;
+  wall.castShadow = false; wall.receiveShadow = true;
   wall.userData = { minX: worldX - w/2, maxX: worldX + w/2, minY:worldY-h/2, maxY:worldY+h/2, minZ: worldZ - d/2, maxZ: worldZ + d/2, targetOpacity: 1, isBoundary, cx: worldX, cy: worldY, cz: worldZ, w, h, d };
   scene.add(wall);
   wallMeshes.push(wall);
@@ -640,6 +654,75 @@ function createGothicWall(worldX,worldY,worldZ,w,h,d,isBoundary){
   }
   return wall;
 }
+function buildLocationLandmarks(locationIndex,ox,oz){
+  if(!scene) return;
+  const rng=seededRandom(0x51a7+locationIndex*7919),trees=[],rocks=[],props=[];
+  const treeGeo=new THREE.CylinderGeometry(0.35,0.62,5,6),pineGeo=new THREE.ConeGeometry(2.2,6,6);
+  const rockGeo=new THREE.DodecahedronGeometry(1.25,0),treeMat=new THREE.MeshStandardMaterial({color:locationIndex===2?0x28362c:0x211c1b,roughness:1});
+  const pineMat=new THREE.MeshStandardMaterial({color:0x26362d,roughness:1}),rockMat=new THREE.MeshStandardMaterial({color:locationIndex===3?0x312931:0x4a4643,roughness:0.96});
+  const addInstances=(geometry,material,items)=>{
+    if(!items.length)return;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();
+    items.forEach(o=>{dummy.position.set(o.x,o.y,o.z);dummy.rotation.set(o.rx||0,o.ry||0,o.rz||0);dummy.scale.set(o.sx||1,o.sy||1,o.sz||1);dummy.updateMatrix();mesh.setMatrixAt(items.indexOf(o),dummy.matrix);});
+    mesh.castShadow=false;mesh.receiveShadow=true;scene.add(mesh);envObjects.push({mesh});
+  };
+  // Visually dress route edges and open courtyards with instanced scenery, not hundreds of standalone meshes.
+  for(let i=0;i<44;i++){
+    const x=ox+8+rng()*(STAGE_WORLD_WIDTH-16),z=oz+8+rng()*(STAGE_WORLD_DEPTH-16);
+    if(Math.hypot(x-(ox+12),z-(oz+12))<18)continue;
+    const p=rng()<0.5?-1:1;
+    if(locationIndex===0){props.push({x,y:0.45,z,ry:rng()*Math.PI*2,sx:1.6,sy:0.9,sz:0.8}); if(i%2===0) trees.push({x:x+p*2,y:2.4,z:z+p*2,sy:1.2});}
+    else if(locationIndex===2){rocks.push({x,y:0.6+rng()*0.45,z,ry:rng()*Math.PI,sx:0.8+rng()*1.5,sy:0.65+rng()*0.6,sz:0.8+rng()});trees.push({x:x+p*2,y:2.3,z:z-p*2,sy:0.95+rng()*0.5});}
+    else if(locationIndex===3&&i<28){props.push({x,y:0.35,z,ry:rng()*Math.PI*2,sx:1.1,sy:0.8,sz:1.4});}
+  }
+  if(locationIndex===0||locationIndex===2){
+    addInstances(treeGeo,treeMat,trees);addInstances(pineGeo,pineMat,trees.map(t=>({x:t.x,y:t.y+5.1,z:t.z,sx:t.sy,sy:t.sy,sz:t.sy})));
+  }
+  addInstances(rockGeo,rockMat,rocks);addInstances(rockGeo,locationIndex===3?rockMat:new THREE.MeshStandardMaterial({color:0x493b36,roughness:1}),props);
+  if(locationIndex===3){
+    const webMat=new THREE.LineBasicMaterial({color:0xb9b1a6,transparent:true,opacity:0.22});
+    for(let i=0;i<10;i++){
+      const x=ox+12+(i%5)*ROOM_WORLD_SIZE,z=oz+12+Math.floor(i/5)*ROOM_WORLD_SIZE;
+      const points=[];for(let j=0;j<7;j++)points.push(new THREE.Vector3(x-3+j,8+Math.sin(j/6*Math.PI)*2,z));
+      const web=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),webMat);scene.add(web);envObjects.push({mesh:web});
+    }
+  }
+}
+function addBreakableStoneWall(id,x,z,floorY){
+  if(campaignProgress.brokenSecrets[id])return;
+  const group=new THREE.Group(),stone=new THREE.MeshStandardMaterial({color:0x514b47,roughness:1}),crack=new THREE.MeshBasicMaterial({color:0x181719});
+  for(let i=0;i<7;i++){const b=new THREE.Mesh(new THREE.DodecahedronGeometry(0.75+(i%3)*0.12,0),stone);b.position.set((i%3-1)*0.8,0.6+Math.floor(i/3)*0.68,(i%2)*0.2);b.castShadow=false;group.add(b);}
+  const fissure=new THREE.Mesh(new THREE.BoxGeometry(0.07,1.1,0.08),crack);fissure.position.set(0,1,0.4);group.add(fissure);
+  group.position.set(x,floorY,z);scene.add(group);envObjects.push({mesh:group});
+  const collider={minX:x-1.35,maxX:x+1.35,minY:floorY,maxY:floorY+2.2,minZ:z-0.55,maxZ:z+0.55,cx:x,cy:floorY+1.1,cz:z,w:2.7,h:2.2,d:1.1,floorY};wallColliders.push(collider);
+  const barrier={id,x,z,y:floorY,group,collider,hp:2};breakableBarriers.push(barrier);
+  const interactable={type:'secretWall',x,z,y:floorY,barrier};worldInteractables.push(interactable);
+}
+function buildCampaignTargets(locationIndex,ox,oz){
+  if(locationIndex===0)addBreakableStoneWall('street-court',ox+ROOM_WORLD_SIZE*2.5,oz+ROOM_WORLD_SIZE*0.55,0);
+  if(locationIndex===2){
+    addBreakableStoneWall('mountain-cave',ox+ROOM_WORLD_SIZE*3.7,oz+ROOM_WORLD_SIZE*0.8,0);
+    const x=ox+STAGE_WORLD_WIDTH/2,z=oz+STAGE_WORLD_DEPTH/2-10,y=0;
+    const frame=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:0x343039,metalness:0.65,roughness:0.56}),gold=new THREE.MeshStandardMaterial({color:0x80613b,metalness:0.8,roughness:0.35});
+    for(const side of [-1,1]){const post=new THREE.Mesh(new THREE.BoxGeometry(0.8,8,0.8),mat);post.position.set(side*4,4,0);frame.add(post);}
+    const lintel=new THREE.Mesh(new THREE.BoxGeometry(8.8,0.8,0.8),mat);lintel.position.y=8;frame.add(lintel);
+    const bars=new THREE.Mesh(new THREE.BoxGeometry(7.2,6.5,0.35),mat);bars.position.set(0,3.5,0);frame.add(bars);
+    const chain=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,5.5,8),gold);chain.position.set(0,6.5,0.28);frame.add(chain);frame.position.set(x,y,z);scene.add(frame);envObjects.push({mesh:frame});
+    chainTarget={x,y:y+6.5,z:z+0.3,mesh:chain,gate:bars};
+  }
+}
+function damageBreakableBarrier(attack){
+  if(!hunter)return;
+  for(const wall of breakableBarriers){
+    if(campaignProgress.brokenSecrets[wall.id]||attack.hitEnv.has(wall.id))continue;
+    const dx=wall.x-hunter.position.x,dz=wall.z-hunter.position.z,d=Math.hypot(dx,dz);
+    let a=Math.atan2(dx,dz)-attack.facingAngle;while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;
+    if(d<attack.attackRange+1.8&&Math.abs(a)<Math.max(attack.attackAngle/2,0.6)&&Math.abs(hunter.position.y-wall.y)<2.5){
+      attack.hitEnv.add(wall.id);wall.hp--;wall.group.children.forEach((piece,i)=>{piece.rotation.z+=(i%2?1:-1)*0.06;});
+      if(wall.hp<=0){campaignProgress.brokenSecrets[wall.id]=true;wallColliders=wallColliders.filter(c=>c!==wall.collider);rebuildWallCollisionGrid();wall.group.children.forEach((piece,i)=>{piece.position.y-=0.18+(i%3)*0.12;});sfx('break');player.screenShake=0.3;notify('КАМЕННЫЙ ЗАВАЛ РАЗРУШЕН — СЕКРЕТНЫЙ ПРОХОД ОТКРЫТ');SaveSystem.save();}
+    }
+  }
+}
+
 function createDistantHorizon(locationIndex){
   if(!scene) return;
   if(!horizonAssets){
@@ -737,9 +820,12 @@ function buildMazeWalls(grid,ox,oz){
   }
 }
 let _wallCheckFrame = 0;
+let worldTutorialTimers=[];
+let chainTarget=null;
+let breakableBarriers=[];
 function updateWallTransparency(){
   _wallCheckFrame++;
-  if(_wallCheckFrame % 2 !== 0) return;
+  if(_wallCheckFrame % 6 !== 0) return;
   if(!hunter || !camera) return;
   const cPos = camera.position.clone();
   const hBase = hunter.position.clone();
@@ -752,13 +838,13 @@ function updateWallTransparency(){
     const candidates=wall.userData.colliders||[wall.userData];
     for(const box of candidates){
       if(hunter.position.y+2.2<box.minY || hunter.position.y+2.2>box.maxY+2) continue;
-      const wallCenter=new THREE.Vector3(box.cx,box.cy,box.cz);
-      const distToCam=wallCenter.distanceTo(cPos);
+      const dx=box.cx-cPos.x,dy=box.cy-cPos.y,dz=box.cz-cPos.z;
+      const distToCam=Math.sqrt(dx*dx+dy*dy+dz*dz);
       if(distToCam<2.8){ target=wall.userData.isRoomBatch?0.82:0.58; break; }
-      const toWall=wallCenter.clone().sub(cPos),proj=toWall.dot(mainDir);
+      const proj=dx*mainDir.x+dy*mainDir.y+dz*mainDir.z;
       if(proj>0&&proj<hunterDist+1){
-        const closest=cPos.clone().addScaledVector(mainDir,proj);
-        if(closest.distanceTo(wallCenter)<2.2){ target=wall.userData.isRoomBatch?0.74:0.42; break; }
+        const ox=dx-mainDir.x*proj,oy=dy-mainDir.y*proj,oz=dz-mainDir.z*proj;
+        if(ox*ox+oy*oy+oz*oz<4.84){ target=wall.userData.isRoomBatch?0.74:0.42; break; }
       }
     }
     wall.userData.targetOpacity = target;
@@ -816,6 +902,8 @@ function disposeWorldObjectResources(root,shared,disposed){
 
 function clearWorld(){
   if(!scene) return;
+  if(worldTutorialTimers) worldTutorialTimers.forEach(clearTimeout);
+  worldTutorialTimers=[];
   clearEnemyModelAttachQueue();
   const shared=collectSharedWorldResources(),disposed={geometries:new Set(),materials:new Set()};
   const removeObject=object=>{
@@ -841,7 +929,8 @@ function clearWorld(){
   bloodParticles=[];dustMotes = []; ambientCreatures=[]; attackTrails = []; parryIndicators = []; toolProjectiles = [];
   doll = null; workshop = null; waystone = null;
   nearbyLantern = null; nearbyDoll = false; nearbyWorldInteractable=null;
-  shortcutGates=[]; stageElevators=[]; worldInteractables=[];
+  shortcutGates=[]; stageElevators=[]; worldInteractables=[]; chainTarget=null; breakableBarriers=[];
+  if(typeof wallCollisionGrid!=='undefined')wallCollisionGrid.clear();
 }
 
 function addHPBar(g,size){

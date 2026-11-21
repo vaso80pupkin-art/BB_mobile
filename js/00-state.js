@@ -109,7 +109,15 @@ const STAGE_WORLD_WIDTH = ROOM_COLS * ROOM_WORLD_SIZE, STAGE_WORLD_DEPTH = ROOM_
 let stageBounds = {minX:-STAGE_WORLD_WIDTH/2,minZ:-STAGE_WORLD_DEPTH/2,maxX:STAGE_WORLD_WIDTH/2,maxZ:STAGE_WORLD_DEPTH/2};
 let currentFloorIndex = 0, lastRoomNotice = '';
 let currentLocation = 0;
-const LOCATIONS = ['ЦЕНТРАЛЬНЫЙ ЯРНАМ','КАФЕДРАЛЬНЫЙ КВАРТАЛ','ЗАПРЕТНЫЙ ЛЕС','КОШМАР МЕНЗИСА'];
+let campaignProgress = { cityBoss:false, buildingBoss:false, mountainBoss:false, liftActivated:false, castleChainShot:false, brokenSecrets:{} };
+const LOCATIONS = ['ЦЕНТРАЛЬНЫЙ ЯРНАМ','КАФЕДРАЛЬНЫЙ КВАРТАЛ','ГОРНЫЙ ПЕРЕВАЛ','ПАУЧИЙ ЗАМОК'];
+function canEnterLocation(index){
+  if(index===0) return true;
+  if(index===1) return !!campaignProgress.cityBoss;
+  if(index===2) return !!campaignProgress.cityBoss && !!campaignProgress.buildingBoss && !!campaignProgress.liftActivated;
+  if(index===3) return !!campaignProgress.cityBoss && !!campaignProgress.buildingBoss && !!campaignProgress.liftActivated && !!campaignProgress.mountainBoss && !!campaignProgress.castleChainShot;
+  return false;
+}
 let cameraAngle = 0, cameraDistance = 10, cameraHeight = 6;
 let gameTime = 0, parryCount = 0;
 let minimapCtx = null;
@@ -340,7 +348,7 @@ const SaveSystem = {
           seenBosses: {...player.seenBosses}, bestKills: player.bestKills, maxCombo: player.maxCombo
         },
         settings: { sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack },
-        currentLocation, achievements: unlockedAchievements, bestiary: discoveredBestiary,
+        currentLocation, campaignProgress, achievements: unlockedAchievements, bestiary: discoveredBestiary,
         parryCount, perfectDodgeCount, timestamp: Date.now()
       };
       localStorage.setItem(this.KEY, JSON.stringify(data));
@@ -366,7 +374,15 @@ const SaveSystem = {
         gameBrightness = d.settings.gameBrightness ?? gameBrightness;
         currentMusicTrack = d.settings.currentMusicTrack ?? 0;
       }
-      currentLocation = d.currentLocation || 0;
+      currentLocation = Number.isInteger(d.currentLocation) ? Math.max(0,Math.min(LOCATIONS.length-1,d.currentLocation)) : 0;
+      campaignProgress = Object.assign({cityBoss:false,buildingBoss:false,mountainBoss:false,liftActivated:false,castleChainShot:false,brokenSecrets:{}},d.campaignProgress||{});
+      campaignProgress.brokenSecrets = campaignProgress.brokenSecrets || {};
+      if(!d.campaignProgress){
+        // Legacy unlocks only imply boss victories; never infer lift activation or the chain shot.
+        campaignProgress.cityBoss = (d.player.unlockedLocations||1)>=2;
+        campaignProgress.buildingBoss = (d.player.unlockedLocations||1)>=3 && (d.player.bossesKilled||0)>=2;
+        campaignProgress.mountainBoss = (d.player.unlockedLocations||1)>=4 && (d.player.bossesKilled||0)>=3;
+      }
       unlockedAchievements = d.achievements || {};
       discoveredBestiary = d.bestiary || {};
       parryCount = d.parryCount || 0;
