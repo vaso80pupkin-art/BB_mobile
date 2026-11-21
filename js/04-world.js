@@ -206,21 +206,41 @@ function buildOedonChapelFoyer(room,floorY){
   scene.add(group);envObjects.push({mesh:group});
 }
 
+function stageEdgeKey(a,b){ return a<b ? `${a}-${b}` : `${b}-${a}`; }
+function getStageRoomEdges(locationIndex,floorIndex){
+  const edges=[[0,1],[1,2],[2,3],[3,4],[5,6],[6,7],[7,8],[8,9],[0,5],[2,7],[4,9]];
+  const variants=[
+    [],
+    [[1,6]],
+    [[0,6]],
+    [[2,8]]
+  ];
+  const variant=variants[(locationIndex+floorIndex)%variants.length];
+  const open=new Set(edges.map(([a,b])=>stageEdgeKey(a,b)));
+  variant.forEach(([a,b])=>open.add(stageEdgeKey(a,b)));
+  return open;
+}
+
 function buildStageFloor(locationIndex,floorIndex,ox,oz){
-  const floorY=FLOOR_LEVELS[floorIndex],rooms=[];
+  const floorY=FLOOR_LEVELS[floorIndex],rooms=[],openEdges=getStageRoomEdges(locationIndex,floorIndex);
   for(let row=0;row<ROOM_ROWS;row++) for(let col=0;col<ROOM_COLS;col++){
     const roomIndex=row*ROOM_COLS+col;
     const seed=(locationIndex+1)*7919+(floorIndex+1)*104729+(roomIndex+1)*31337;
     const grid=generateMaze(mazeSize,seed);
-    if(col>0) carveMazeRoute(grid,'west');
-    if(col<ROOM_COLS-1) carveMazeRoute(grid,'east');
-    if(row>0) carveMazeRoute(grid,'north');
-    if(row<ROOM_ROWS-1) carveMazeRoute(grid,'south');
+    if(col>0&&openEdges.has(stageEdgeKey(roomIndex,roomIndex-1))) carveMazeRoute(grid,'west');
+    if(col<ROOM_COLS-1&&openEdges.has(stageEdgeKey(roomIndex,roomIndex+1))) carveMazeRoute(grid,'east');
+    if(row>0&&openEdges.has(stageEdgeKey(roomIndex,roomIndex-ROOM_COLS))) carveMazeRoute(grid,'north');
+    if(row<ROOM_ROWS-1&&openEdges.has(stageEdgeKey(roomIndex,roomIndex+ROOM_COLS))) carveMazeRoute(grid,'south');
     const stairwell=(row===0&&(col===2||col===4))||(row===1&&col===0);
     if(stairwell){
       const stairCol=Math.floor(mazeSize/2);
       for(let y=1;y<mazeSize-1;y++) grid[y][stairCol]=0;
       for(let y=1;y<mazeSize-1;y++) if(stairCol>1&&stairCol<mazeSize-2) grid[y][stairCol-1]=0;
+    }
+    if(row===1&&col===3){
+      const mid=Math.floor(mazeSize/2);
+      for(let i=1;i<mazeSize-1;i++){ grid[mid][i]=0; grid[i][mid]=0; }
+      for(let y=mid-1;y<=mid+1;y++) for(let x=mid-1;x<=mid+1;x++) grid[y][x]=0;
     }
     if(locationIndex===0 && floorIndex===0 && roomIndex===0){
       for(let y=1;y<=5;y++) for(let x=1;x<=5;x++) grid[y][x]=0;
@@ -414,7 +434,163 @@ function roomAtWorldPosition(x,z){
   return row*ROOM_COLS+col;
 }
 
+function createGateLever(parent,gate,x,z,floorY,side){
+  const group=new THREE.Group();
+  const metal=new THREE.MeshStandardMaterial({color:0x534631,metalness:0.78,roughness:0.36});
+  const brass=new THREE.MeshStandardMaterial({color:0x9b783f,metalness:0.82,roughness:0.3,emissive:0x241605});
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.34,0.25,10),metal);
+  base.position.y=0.13;group.add(base);
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.92,8),metal);
+  post.position.y=0.68;group.add(post);
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.72,0.18),brass);
+  handle.position.set(0.22,0.88,0);handle.rotation.z=-0.48;group.add(handle);
+  group.position.set(x,floorY,z);parent.add(group);
+  const interactable={type:'gateLever',gate,group,handle,x,z,y:floorY,side};
+  gate.levers.push(interactable);worldInteractables.push(interactable);
+}
+
+function addShortcutGate(x,z,floorY,locationIndex,floorIndex){
+  const group=new THREE.Group();
+  const frameMat=new THREE.MeshStandardMaterial({color:0x302b2e,metalness:0.48,roughness:0.7});
+  const panelMat=new THREE.MeshStandardMaterial({color:0x4a292a,metalness:0.38,roughness:0.68});
+  const width=5.45,height=5.3,thickness=0.46;
+  const postGeo=new THREE.BoxGeometry(0.42,height+0.5,0.62);
+  for(const side of [-1,1]){
+    const post=new THREE.Mesh(postGeo,frameMat);post.position.set(x+side*(width/2+0.26),floorY+(height+0.5)/2,z);post.castShadow=true;group.add(post);
+  }
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(width+0.95,0.55,0.72),frameMat);
+  lintel.position.set(x,floorY+height+0.16,z);lintel.castShadow=true;group.add(lintel);
+  const panel=new THREE.Mesh(new THREE.BoxGeometry(width,height,thickness),panelMat);
+  panel.position.set(x,floorY+height/2,z);panel.castShadow=true;panel.receiveShadow=true;group.add(panel);
+  const collider={minX:x-width/2,maxX:x+width/2,minY:floorY,maxY:floorY+height,minZ:z-thickness/2,maxZ:z+thickness/2,cx:x,cy:floorY+height/2,cz:z,w:width,h:height,d:thickness,floorY};
+  scene.add(group);envObjects.push({mesh:group});wallColliders.push(collider);
+  const gate={group,panel,collider,levers:[],opened:false,locationIndex,floorIndex};
+  shortcutGates.push(gate);
+  createGateLever(group,gate,x,z-3.45,floorY,'south');
+  createGateLever(group,gate,x,z+3.45,floorY,'north');
+  return gate;
+}
+
+function addStageElevator(x,z,lowerY,upperY){
+  const group=new THREE.Group();
+  const steel=new THREE.MeshStandardMaterial({color:0x34383c,metalness:0.82,roughness:0.42});
+  const brass=new THREE.MeshStandardMaterial({color:0x8b6e3e,metalness:0.78,roughness:0.34});
+  const shaftHeight=upperY-lowerY+5;
+  for(const sx of [-2.85,2.85]) for(const sz of [-2.85,2.85]){
+    const beam=new THREE.Mesh(new THREE.BoxGeometry(0.28,shaftHeight,0.28),steel);
+    beam.position.set(x+sx,lowerY+shaftHeight/2-0.3,z+sz);beam.castShadow=true;group.add(beam);
+  }
+  for(const y of [lowerY+0.25,upperY+0.25]){
+    for(const side of [-1,1]){
+      const across=new THREE.Mesh(new THREE.BoxGeometry(5.9,0.22,0.22),brass);
+      across.position.set(x,y,z+side*2.95);group.add(across);
+      const along=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.22,5.9),brass);
+      along.position.set(x+side*2.95,y,z);group.add(along);
+    }
+  }
+  const cabin=new THREE.Group();
+  const platform=new THREE.Mesh(new THREE.BoxGeometry(5.25,0.45,5.25),steel);
+  platform.position.y=0.22;platform.castShadow=true;platform.receiveShadow=true;cabin.add(platform);
+  const deck=new THREE.Mesh(new THREE.BoxGeometry(4.85,0.08,4.85),new THREE.MeshStandardMaterial({color:0x5a5143,metalness:0.58,roughness:0.52}));
+  deck.position.y=0.48;deck.receiveShadow=true;cabin.add(deck);
+  for(const side of [-1,1]) for(const axis of [0,1]){
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(axis===0?4.7:0.14,0.85,axis===0?0.14:4.7),brass);
+    rail.position.set(axis===0?0:side*2.35,0.9,axis===0?side*2.35:0);cabin.add(rail);
+  }
+  cabin.position.set(x,lowerY,z);group.add(cabin);
+  scene.add(group);envObjects.push({mesh:group});
+  const elevator={x,z,lowerY,upperY,currentY:lowerY,targetY:lowerY,moving:false,rider:false,group,cabin,speed:8.5};
+  stageElevators.push(elevator);
+  const rideButton=new THREE.Group();
+  const button=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.24,0.12,10),brass);button.position.y=0.64;rideButton.add(button);cabin.add(rideButton);
+  const rideInteractable={type:'elevatorRide',elevator,group:rideButton,x,z,y:lowerY+0.64};
+  worldInteractables.push(rideInteractable);elevator.rideInteractable=rideInteractable;
+  for(let floorIndex=0;floorIndex<2;floorIndex++){
+    const floorY=FLOOR_LEVELS[floorIndex],panelGroup=new THREE.Group();
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.68,1.25,0.4),steel);base.position.y=0.63;panelGroup.add(base);
+    const callButton=new THREE.Mesh(new THREE.SphereGeometry(0.14,10,8),brass);callButton.position.set(0,0.82,0.24);panelGroup.add(callButton);
+    panelGroup.position.set(x+4.1,floorY,z);group.add(panelGroup);
+    worldInteractables.push({type:'elevatorCall',elevator,group:panelGroup,x:x+4.1,z,y:floorY,floorIndex});
+  }
+  return elevator;
+}
+
+function updateStageMechanics(dt){
+  stageElevators.forEach(elevator=>{
+    if(!elevator.moving) return;
+    const direction=Math.sign(elevator.targetY-elevator.currentY);
+    elevator.currentY+=direction*elevator.speed*dt;
+    if((direction>0&&elevator.currentY>=elevator.targetY)||(direction<0&&elevator.currentY<=elevator.targetY)){
+      elevator.currentY=elevator.targetY;elevator.moving=false;
+      if(elevator.rider){
+        hunter.position.y=elevator.currentY+0.4;
+        currentFloorIndex=elevator.currentY>=(elevator.lowerY+elevator.upperY)/2?1:0;
+        updateStageLocationLabel(true);
+      }
+      elevator.rider=false;
+      notify('ЛИФТ ПРИБЫЛ');
+    }
+    elevator.cabin.position.y=elevator.currentY;
+    if(elevator.rider) hunter.position.y=elevator.currentY+0.4;
+    elevator.rideInteractable.y=elevator.currentY+0.64;
+  });
+}
+
+function checkWorldInteractableProximity(){
+  nearbyWorldInteractable=null;
+  if(!hunter||gameMode!==GameMode.PLAYING) return;
+  const prompt=$('worldInteractPrompt');
+  const menuOpen=['lanternMenu','weaponMenu','gemMenu','teleportMenu','pauseMenu','settingsMenu'].some(id=>$(id)?.classList.contains('active'));
+  let nearest=4.0;
+  if(!menuOpen&&!player.isAttacking&&!player.isDodging){
+    worldInteractables.forEach(item=>{
+      const d=Math.hypot(hunter.position.x-item.x,hunter.position.z-item.z);
+      if(d<nearest&&Math.abs(hunter.position.y-item.y)<2.8){nearest=d;nearbyWorldInteractable=item;}
+    });
+  }
+  if(nearbyWorldInteractable){
+    prompt.textContent=nearbyWorldInteractable.type==='gateLever'?'РЫЧАГ — ОТКРЫТЬ КОРОТКИЙ ПУТЬ':
+      nearbyWorldInteractable.type==='elevatorCall'?'ВЫЗВАТЬ ЛИФТ':
+      nearbyWorldInteractable.elevator.moving?'ЛИФТ ДВИЖЕТСЯ':'ЛИФТ — ПОДЪЁМ / СПУСК';
+    prompt.classList.add('show');
+  } else prompt.classList.remove('show');
+}
+
+function activateNearbyWorldObject(){
+  const item=nearbyWorldInteractable;
+  if(!item||gameMode!==GameMode.PLAYING) return;
+  if(item.type==='gateLever'){
+    const gate=item.gate;
+    if(gate.opened){notify('КОРОТКИЙ ПУТЬ УЖЕ ОТКРЫТ');return;}
+    gate.opened=true;gate.group.remove(gate.panel);wallColliders=wallColliders.filter(box=>box!==gate.collider);
+    gate.levers.forEach(lever=>lever.handle.material.color.setHex(0x44bb66));
+    worldInteractables=worldInteractables.filter(entry=>entry.gate!==gate);
+    sfx('lantern');notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
+    return;
+  }
+  const elevator=item.elevator;
+  if(elevator.moving){notify('ЛИФТ УЖЕ ДВИЖЕТСЯ');return;}
+  const onPlatform=Math.hypot(hunter.position.x-elevator.x,hunter.position.z-elevator.z)<2.1&&Math.abs(hunter.position.y-(elevator.currentY+0.4))<1.4;
+  if(item.type==='elevatorCall'){
+    const requestedY=FLOOR_LEVELS[item.floorIndex];
+    if(Math.abs(elevator.currentY-requestedY)<0.8){
+      if(onPlatform){
+        elevator.targetY=item.floorIndex===0?elevator.upperY:elevator.lowerY;
+        elevator.rider=true;
+      } else {notify('ЛИФТ УЖЕ НА ЭТАЖЕ — ВСТАНЬТЕ НА ПЛАТФОРМУ');return;}
+    } else {elevator.targetY=requestedY;elevator.rider=false;}
+  } else {
+    if(!onPlatform){notify('ВСТАНЬТЕ НА ПЛАТФОРМУ');return;}
+    elevator.targetY=elevator.currentY<(elevator.lowerY+elevator.upperY)/2?elevator.upperY:elevator.lowerY;
+    elevator.rider=true;
+  }
+  elevator.moving=true;sfx('lantern');
+}
+
 function getFloorHeightAt(x,z,currentY=0){
+  for(const elevator of stageElevators){
+    if(Math.abs(x-elevator.x)<=2.35&&Math.abs(z-elevator.z)<=2.35&&Math.abs(currentY-(elevator.currentY+0.4))<2.8) return elevator.currentY+0.4;
+  }
   for(const stair of stairs){
     const side=Math.abs(x-stair.x),along=z-stair.z;
     if(side<=stair.width/2+0.8&&along>=-0.25&&along<=stair.run+0.25){
@@ -610,7 +786,8 @@ function clearWorld(){
   enemies = []; wallMeshes = []; wallColliders=[]; floorMeshes=[]; stairs=[]; chests = []; lanterns = []; envObjects = [];
   dustMotes = []; ambientCreatures=[]; attackTrails = []; parryIndicators = []; toolProjectiles = [];
   doll = null; workshop = null; waystone = null;
-  nearbyLantern = null; nearbyDoll = false;
+  nearbyLantern = null; nearbyDoll = false; nearbyWorldInteractable=null;
+  shortcutGates=[]; stageElevators=[]; worldInteractables=[];
 }
 
 function addHPBar(g,size){

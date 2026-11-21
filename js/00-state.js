@@ -85,13 +85,16 @@ let hunterYawGroup = null, hunterMixer = null, hunterModelClips = [], hunterClip
 let hunterAnimMode = 'none';            // 'none' | 'clips' | 'parts' | 'body'
 let hunterPoseState = '', hunterLastAttackT = 0, hunterAttackCombo = 0;
 let hunterSwingAxis = null, hunterFwdAxis = null;
+let modelFlip = new URLSearchParams(window.location.search).get('flip') === '1';
 let hunterModelYaw = null;              // поворот GLB-модели, чтобы «перёд» смотрел по ходу движения
 try{ const v = localStorage.getItem('bb_hunter_yaw'); if(v !== null && !isNaN(parseFloat(v))) hunterModelYaw = parseFloat(v); }catch(e){}
+if(modelFlip) hunterModelYaw = Math.PI;
 let sceneInitialized = false;
 let enemies = [], wallMeshes = [], wallColliders = [], floorMeshes = [], stairs = [], chests = [], lanterns = [], envObjects = [];
 let bloodParticles = [], dustMotes = [], rainDrops = [];
 let attackTrails = [], parryIndicators = [], toolProjectiles = [];
 let ambientCreatures = [], cryptAtmosphereAssets = null;
+let shortcutGates = [], stageElevators = [], worldInteractables = [], nearbyWorldInteractable = null;
 let bloodStainMesh = null;
 let doll = null, workshop = null, waystone = null;
 const cellSize = 6;
@@ -109,6 +112,7 @@ let minimapCtx = null;
 let menuOrbitTime = 0;
 let nearbyLantern = null;
 let nearbyDoll = false;
+let stageChoiceOpen = false;
 let moveData = {x:0,y:0,active:false,origin:{x:0,y:0}};
 
 const lightingRefs = {};

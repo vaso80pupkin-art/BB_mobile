@@ -229,6 +229,7 @@ function openTeleportMenu(){
     b.disabled = !unlocked;
     b.addEventListener('click', () => {
       closeTeleportMenu();
+      stageChoiceOpen = false;
       currentLocation = i;
       $('dreamUI').classList.remove('active');
       $('controls').style.display = 'flex';
@@ -242,7 +243,10 @@ function openTeleportMenu(){
     list.appendChild(b);
   });
 }
-function closeTeleportMenu(){ $('teleportMenu').classList.remove('active'); }
+function closeTeleportMenu(){
+  $('teleportMenu').classList.remove('active');
+  if(stageChoiceOpen){ stageChoiceOpen=false; gameMode=GameMode.PLAYING; }
+}
 function openLanternMenu(){
   $('lanternMenu').classList.add('active');
   updateLanternUI();
@@ -335,6 +339,7 @@ function setupCameraSwipe(){
       el.closest('.tool-slot') ||
       el.closest('#lanternPrompt') ||
       el.closest('#dollPrompt') ||
+      el.closest('#worldInteractPrompt') ||
       el.closest('.pause-btn') ||
       el.closest('.fullscreen-btn') ||
       el.closest('.settings-btn') ||
@@ -447,6 +452,7 @@ function setupButtons(){
   bind('btnGun',performGunshot);
   bind('btnTransform',performTransform);
   bind('btnVial',useVial);
+  bind('worldInteractPrompt',activateNearbyWorldObject);
 
   $('btnLevelVig').addEventListener('click',()=>levelUp('vig'));
   $('btnLevelEnd').addEventListener('click',()=>levelUp('end'));
@@ -937,7 +943,7 @@ function killEnemy(enemy){
     sfx('insight');
     notify('+1 👁 ПРОНИЦАТЕЛЬНОСТЬ');
     unlockAchievement('first_boss');
-    if(currentLocation + 1 > player.unlockedLocations) player.unlockedLocations = currentLocation + 2;
+    player.unlockedLocations=Math.max(player.unlockedLocations,currentLocation===0?3:4);
   }
   const shardChance = enemy.type === 'boss' ? 1.0 : 0.15;
   if(Math.random() < shardChance){
@@ -953,9 +959,16 @@ function killEnemy(enemy){
   if(player.lockedTarget===enemy){ player.lockedTarget = null; }
   if(enemy.type==='boss'){
     $('bossWrap').classList.remove('show');
+    const defeatedLocation=currentLocation;
     setTimeout(()=>{
-      if(currentLocation < LOCATIONS.length-1) loadLocation(currentLocation+1);
-      else { player.ngPlus++; unlockAchievement('ng_plus'); notify('🌑 NG+'+player.ngPlus+' НАЧИНАЕТСЯ!'); loadLocation(0); }
+      if(currentLocation!==defeatedLocation) return;
+      if(currentLocation < LOCATIONS.length-1){
+        stageChoiceOpen=true;gameMode=GameMode.PAUSED;
+        notify(currentLocation===0?'ОТКРЫТЫ ДВА ПУТИ — ВЫБЕРИТЕ ЭТАП':'НОВАЯ ЛОКАЦИЯ ОТКРЫТА');
+        openTeleportMenu();
+      } else {
+        player.ngPlus++;unlockAchievement('ng_plus');notify('🌑 NG+'+player.ngPlus+' НАЧИНАЕТСЯ!');loadLocation(0);
+      }
     },4000);
   }
   SaveSystem.save();

@@ -359,6 +359,9 @@ function loadLocation(idx){
     spec.x=roomX+ROOM_WORLD_SIZE/2;spec.z=roomZ+12;
     return {x0:spec.x-spec.width/2-0.8,x1:spec.x+spec.width/2+0.8,z0:spec.z-1,z1:spec.z+spec.run+1};
   });
+  const elevatorX=ox+3*ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
+  const elevatorZ=oz+ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
+  stairHoles.push({x0:elevatorX-3.25,x1:elevatorX+3.25,z0:elevatorZ-3.25,z1:elevatorZ+3.25});
   const floorMargin=10;
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1],stairHoles);
@@ -366,6 +369,9 @@ function loadLocation(idx){
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles,true);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true);
   stairSpecs.forEach(spec=>addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style));
+  addStageElevator(elevatorX,elevatorZ,FLOOR_LEVELS[0],FLOOR_LEVELS[1]);
+  const shortcutX=ox+2.5*ROOM_WORLD_SIZE,shortcutZ=oz+ROOM_WORLD_SIZE;
+  for(let floor=0;floor<FLOOR_LEVELS.length;floor++) addShortcutGate(shortcutX,shortcutZ,FLOOR_LEVELS[floor],idx,floor);
   if(idx===0) buildOedonChapelFoyer(floorRooms[0][0],FLOOR_LEVELS[0]);
   scatterCryptAtmosphere(floorRooms,idx);
   createDistantHorizon(idx);

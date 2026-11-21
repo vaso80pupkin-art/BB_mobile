@@ -506,7 +506,9 @@ function loop(){
   updateWallTransparency();
   updateEnemies(dt,rawTime);
   updateAmbientCreatures(rawTime);
+  updateStageMechanics(dt);
   checkLanternProximity();
+  checkWorldInteractableProximity();
   checkBloodStainPickup();
   updateMinimap();
   for(let i = bloodParticles.length-1;i>=0;i--){
