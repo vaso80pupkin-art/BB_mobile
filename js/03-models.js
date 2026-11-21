@@ -44,6 +44,15 @@ function rotateHunterModel(){
   updateHunterAxes();
 }
 
+window.addEventListener('keydown',event=>{
+  if(!event.repeat && event.key && event.key.toLowerCase()==='t'){
+    modelFlip=!modelFlip; hunterModelYaw=modelFlip?Math.PI:0;
+    try{ localStorage.setItem('bb_hunter_yaw',String(hunterModelYaw)); }catch(e){}
+    if(hunterYawGroup) hunterYawGroup.rotation.y=hunterModelYaw;
+    updateHunterAxes();
+  }
+});
+
 function setupHunterClips(){
   const clips = hunterModelClips || [];
   const find = re => clips.find(c => re.test(c.name)) || null;
