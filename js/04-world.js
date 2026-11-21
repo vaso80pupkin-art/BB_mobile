@@ -753,18 +753,18 @@ function updateWallTransparency(){
       if(hunter.position.y+2.2<box.minY || hunter.position.y+2.2>box.maxY+2) continue;
       const wallCenter=new THREE.Vector3(box.cx,box.cy,box.cz);
       const distToCam=wallCenter.distanceTo(cPos);
-      if(distToCam<4){ target=0.02; break; }
+      if(distToCam<2.8){ target=wall.userData.isRoomBatch?0.82:0.58; break; }
       const toWall=wallCenter.clone().sub(cPos),proj=toWall.dot(mainDir);
       if(proj>0&&proj<hunterDist+1){
         const closest=cPos.clone().addScaledVector(mainDir,proj);
-        if(closest.distanceTo(wallCenter)<3.2){ target=0.045; break; }
+        if(closest.distanceTo(wallCenter)<2.2){ target=wall.userData.isRoomBatch?0.74:0.42; break; }
       }
     }
     wall.userData.targetOpacity = target;
-    const speed = target < wall.material.opacity ? 0.55 : 0.12;
+    const speed = target < wall.material.opacity ? 0.18 : 0.10;
     wall.material.opacity = lerp(wall.material.opacity, target, speed);
-    wall.material.depthWrite=wall.material.opacity>0.82;
-    wall.visible = wall.material.opacity > 0.03;
+    wall.material.depthWrite=wall.material.opacity>0.68;
+    wall.visible = true;
   });
 }
 
