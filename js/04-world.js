@@ -523,6 +523,38 @@ function addStageElevator(x,z,lowerY,upperY){
   }
   return elevator;
 }
+function addCampaignExit(destination,x,z,floorY){
+  const group=new THREE.Group();
+  const stone=new THREE.MeshStandardMaterial({color:0x403943,roughness:0.84,metalness:0.12});
+  const trim=new THREE.MeshStandardMaterial({color:0x806343,roughness:0.58,metalness:0.62});
+  const glow=new THREE.MeshBasicMaterial({color:0x49304f,transparent:true,opacity:0.44,side:THREE.DoubleSide,depthWrite:false});
+  for(const side of [-1,1]){
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.42,4.2,0.52),stone);
+    post.position.set(side*1.72,2.1,0);post.castShadow=true;group.add(post);
+  }
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(4.05,0.5,0.58),trim);
+  lintel.position.set(0,4.3,0);lintel.castShadow=true;group.add(lintel);
+  const portal=new THREE.Mesh(new THREE.PlaneGeometry(2.75,3.35),glow);
+  portal.position.set(0,1.9,0.08);group.add(portal);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(1.48,0.075,8,24),trim);
+  ring.position.set(0,2.05,0.18);group.add(ring);
+  group.position.set(x,floorY,z);scene.add(group);envObjects.push({mesh:group});
+  const exit={type:'campaignExit',destination,x,z,y:floorY,group};
+  worldInteractables.push(exit);
+  return exit;
+}
+function campaignExitPrompt(destination){
+  if(destination===1&&!campaignProgress.cityBoss)return 'ВЫХОД ЗАКРЫТ — ПОБЕДИТЕ БОССА';
+  if(destination===2){
+    if(!campaignProgress.buildingBoss)return 'ВЫХОД ЗАКРЫТ — ПОБЕДИТЕ БОССА';
+    if(!campaignProgress.liftActivated)return 'ВЫХОД ЗАКРЫТ — СНАЧАЛА АКТИВИРУЙТЕ ЛИФТ';
+  }
+  if(destination===3){
+    if(!campaignProgress.mountainBoss)return 'ВЫХОД ЗАКРЫТ — ПОБЕДИТЕ БОССА';
+    if(!campaignProgress.castleChainShot)return 'ВЫХОД ЗАКРЫТ — СТРЕЛЯЙТЕ ПО ЦЕПИ';
+  }
+  return 'ПЕРЕЙТИ: '+LOCATIONS[destination];
+}
 
 function updateStageMechanics(dt){
   stageElevators.forEach(elevator=>{
@@ -562,6 +594,7 @@ function checkWorldInteractableProximity(){
   if(nearbyWorldInteractable){
     prompt.textContent=nearbyWorldInteractable.type==='gateLever'?'РЫЧАГ — ОТКРЫТЬ КОРОТКИЙ ПУТЬ':
       nearbyWorldInteractable.type==='secretWall'?'КАМНИ ПОКРЫТЫ ТРЕЩИНАМИ — ПРОБЕЙТЕ ИХ ОРУЖИЕМ':
+      nearbyWorldInteractable.type==='campaignExit'?campaignExitPrompt(nearbyWorldInteractable.destination):
       nearbyWorldInteractable.type==='elevatorCall'?'ВЫЗВАТЬ ЛИФТ':
       nearbyWorldInteractable.elevator.moving?'ЛИФТ ДВИЖЕТСЯ':'ЛИФТ — ПОДЪЁМ / СПУСК';
     prompt.classList.add('show');
@@ -580,6 +613,13 @@ function activateNearbyWorldObject(){
     rebuildWallCollisionGrid();
     worldInteractables=worldInteractables.filter(entry=>entry.gate!==gate);
     sfx('lever');notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
+    return;
+  }
+  if(item.type==='campaignExit'){
+    if(!canEnterLocation(item.destination)){notify(campaignExitPrompt(item.destination));return;}
+    const destinationName=LOCATIONS[item.destination];
+    loadLocation(item.destination);SaveSystem.save();updateHUD();startAmbient();
+    notify('ПЕРЕХОД: '+destinationName);
     return;
   }
   const elevator=item.elevator;
@@ -710,6 +750,7 @@ function buildCampaignTargets(locationIndex,ox,oz){
     const gateOpen=!!campaignProgress.castleChainShot;bars.visible=!gateOpen;chain.visible=!gateOpen;
     if(!gateOpen)wallColliders.push(gateCollider);
     chainTarget={x,y:y+6.5,z:z+0.3,mesh:chain,gate:bars,collider:gateCollider};
+    worldInteractables.push({type:'campaignExit',destination:3,x,z:z-2,y});
   }
 }
 function damageBreakableBarrier(attack){

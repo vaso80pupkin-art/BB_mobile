@@ -426,6 +426,7 @@ function loadLocation(idx){
   const bx=bossRoom.roomX+bossCell*cellSize;
   const bz=bossRoom.roomZ+bossCell*cellSize;
   spawnBoss(bossNames[idx]||bossNames[0],bx,bz,FLOOR_LEVELS[1]);
+  if(idx<2)addCampaignExit(idx+1,bx-3,bz,FLOOR_LEVELS[1]);
   updateStageLocationLabel(true);
 
   if(bloodStain && bloodStain.loc === idx){
