@@ -294,21 +294,40 @@ const MUSIC_TRACKS = [
   { name:'2Pac', file: '2Pac.mp3' }
 ];
 
-function playMusicFile(trackIdx) {
-    if(!audioCtx) return;
-    stopMusic();
-    if (trackIdx < 0 || trackIdx >= MUSIC_TRACKS.length) return;
+function prepareMusicTrack(trackIdx=currentMusicTrack) {
+    if (trackIdx < 0 || trackIdx >= MUSIC_TRACKS.length) return false;
     if (!musicAudio) musicAudio = new Audio();
-    
-    const track = MUSIC_TRACKS[trackIdx];
-    musicAudio.src = track.file;
+    const trackUrl = new URL(MUSIC_TRACKS[trackIdx].file, document.baseURI).href;
+    musicAudio.preload = 'auto';
     musicAudio.loop = true;
     musicAudio.volume = musicVolume;
-    
-    musicAudio.play().then(() => {
+    if (musicAudio.src !== trackUrl) {
+        musicAudio.src = trackUrl;
+        musicAudio.load();
+    }
+    return true;
+}
+
+function playMusicFile(trackIdx) {
+    if(!audioCtx || !prepareMusicTrack(trackIdx)) return false;
+    const trackUrl = new URL(MUSIC_TRACKS[trackIdx].file, document.baseURI).href;
+    if (musicAudio.src === trackUrl) {
+        musicAudio.pause();
+        musicAudio.currentTime = 0;
+    }
+    musicActive = false;
+    musicAudio.volume = musicVolume;
+    const playRequest = musicAudio.play();
+    if (playRequest && typeof playRequest.then === 'function') {
+        playRequest.then(() => {
+            musicActive = true;
+            currentMusicTrack = trackIdx;
+        }).catch(error => console.warn('[BB] Не удалось запустить фоновую музыку:', error));
+    } else {
         musicActive = true;
         currentMusicTrack = trackIdx;
-    }).catch(e => console.warn('Music playback failed:', e));
+    }
+    return true;
 }
 
 function stopMusic() {
@@ -325,8 +344,7 @@ function setMusicTrack(idx) {
     if (musicActive) {
         playMusicFile(idx);
     } else {
-        if (!musicAudio) musicAudio = new Audio();
-        musicAudio.src = MUSIC_TRACKS[idx].file;
+        prepareMusicTrack(idx);
     }
 }
 

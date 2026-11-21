@@ -658,9 +658,6 @@ function startGame(loadSave){
     updateHUD();
     startAmbient();
     
-    // === ИЗМЕНЕНИЕ: Запуск MP3 вместо процедурной музыки ===
-    if(!musicActive) playMusicFile(currentMusicTrack);
-    
   } catch(err){
     console.error('[BB] startGame error:', err);
     alert('Ошибка при запуске: ' + err.message);
@@ -704,6 +701,7 @@ window.addEventListener('load', () => {
         requestLandscapeMode();
         initAudio();
         sfx('menu');
+        playMusicFile(currentMusicTrack);
         loadVisualAssets();
         startGame(false);
       } catch(err){
@@ -717,9 +715,10 @@ window.addEventListener('load', () => {
       try {
         requestLandscapeMode();
         initAudio();
+        SaveSystem.load();
+        playMusicFile(currentMusicTrack);
         sfx('menu');
         loadVisualAssets();
-        SaveSystem.load();
         startGame(true);
       } catch(err){
         console.error('[BB] btnContinue handler error:', err);
@@ -733,7 +732,10 @@ window.addEventListener('load', () => {
   try { createHunter(); } catch(err){ console.error('[BB] createHunter:', err); }
   try { setupMenuScene(); } catch(err){ console.error('[BB] setupMenuScene:', err); }
   try { animate(); } catch(err){ console.error('[BB] animate:', err); }
-  const loadMenuModels = () => { try { loadVisualAssets(); } catch(err){ console.error('[BB] loadVisualAssets:', err); } };
+  const loadMenuModels = () => {
+    try { loadVisualAssets(); } catch(err){ console.error('[BB] loadVisualAssets:', err); }
+    try { prepareMusicTrack(currentMusicTrack); } catch(err){ console.warn('[BB] Не удалось подготовить фоновую музыку:', err); }
+  };
   if(window.requestIdleCallback) window.requestIdleCallback(loadMenuModels,{timeout:2500});
   else window.setTimeout(loadMenuModels,1400);
   if(SaveSystem.hasSave() && btnContinue) btnContinue.style.display = 'block';
