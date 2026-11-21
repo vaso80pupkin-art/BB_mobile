@@ -19,23 +19,22 @@ function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceilin
   regions.forEach(r=>addCobblePatch(r.x1-r.x0,r.z1-r.z0,(r.x0+r.x1)/2,(r.z0+r.z1)/2,levelY,ceiling));
 }
 
+let roomWallUnitGeometry=null;
 function addRoomWallBatch(boxes,roomBounds,floorY){
   if(!boxes.length) return;
+  if(!roomWallUnitGeometry) roomWallUnitGeometry=new THREE.BoxGeometry(1,1,1);
+  const p=roomWallUnitGeometry.attributes.position.array,n=roomWallUnitGeometry.attributes.normal.array,u=roomWallUnitGeometry.attributes.uv.array,idx=roomWallUnitGeometry.index.array;
   const positions=[],normals=[],uvs=[],indices=[];
   boxes.forEach(box=>{
-    const geo=new THREE.BoxGeometry(box.maxX-box.minX,box.maxY-box.minY,box.maxZ-box.minZ);
-    geo.applyMatrix4(new THREE.Matrix4().makeTranslation(box.cx,box.cy,box.cz));
-    const p=geo.attributes.position.array,n=geo.attributes.normal.array,u=geo.attributes.uv.array,base=positions.length/3;
-    for(let i=0;i<p.length;i++) positions.push(p[i]);
+    const width=box.maxX-box.minX,height=box.maxY-box.minY,depth=box.maxZ-box.minZ,base=positions.length/3;
+    for(let i=0;i<p.length;i+=3) positions.push(p[i]*width+box.cx,p[i+1]*height+box.cy,p[i+2]*depth+box.cz);
     for(let i=0;i<n.length;i++) normals.push(n[i]);
     for(let i=0;i<u.length;i+=2){
       const normalX=n[(i/2)*3];
       const faceWidth=Math.abs(normalX)>0.5?box.maxZ-box.minZ:(box.maxX-box.minX);
       uvs.push(u[i]*Math.max(0.5,faceWidth/4.5),u[i+1]*Math.max(0.5,box.h/4.5));
     }
-    const idx=geo.index.array;
     for(let i=0;i<idx.length;i++) indices.push(base+idx[i]);
-    geo.dispose();
   });
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
