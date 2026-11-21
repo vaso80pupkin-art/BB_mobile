@@ -88,6 +88,10 @@ let hunterSwingAxis = null, hunterFwdAxis = null;
 let modelFlip = new URLSearchParams(window.location.search).get('flip') === '1';
 let hunterModelYaw = null;              // поворот GLB-модели, чтобы «перёд» смотрел по ходу движения
 try{ const v = localStorage.getItem('bb_hunter_yaw'); if(v !== null && !isNaN(parseFloat(v))) hunterModelYaw = parseFloat(v); }catch(e){}
+if(!modelFlip && hunterModelYaw !== null){
+  const normalizedYaw=((hunterModelYaw%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+  modelFlip=Math.abs(normalizedYaw-Math.PI)<0.001;
+}
 if(modelFlip) hunterModelYaw = Math.PI;
 let sceneInitialized = false;
 let enemies = [], wallMeshes = [], wallColliders = [], floorMeshes = [], stairs = [], chests = [], lanterns = [], envObjects = [];
