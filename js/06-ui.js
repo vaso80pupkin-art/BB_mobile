@@ -1032,7 +1032,7 @@ function performGunshot(){
   if(currentLocation===2 && !campaignProgress.castleChainShot && chainTarget){
     const dx=chainTarget.x-hunter.position.x,dz=chainTarget.z-hunter.position.z,d=Math.hypot(dx,dz);
     let diff=Math.atan2(dx,dz)-pAng;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
-    if(d<24&&Math.abs(diff)<Math.PI/10){campaignProgress.castleChainShot=true;chainTarget.mesh.visible=false;if(chainTarget.gate)chainTarget.gate.visible=false;SaveSystem.save();sfx('break');notify('ЦЕПЬ ОБОРВАНА — ВОРОТА ЗАМКА ОТКРЫТЫ');player.screenShake=0.55;}
+    if(d<24&&Math.abs(diff)<Math.PI/10){campaignProgress.castleChainShot=true;chainTarget.mesh.visible=false;if(chainTarget.gate)chainTarget.gate.visible=false;if(chainTarget.collider){wallColliders=wallColliders.filter(c=>c!==chainTarget.collider);rebuildWallCollisionGrid();}SaveSystem.save();sfx('break');notify('ЦЕПЬ ОБОРВАНА — ВОРОТА ЗАМКА ОТКРЫТЫ');player.screenShake=0.55;}
   }
   const bltBonus = player.stats.blt*0.8;
   enemies.forEach(enemy=>{
