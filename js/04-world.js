@@ -707,6 +707,7 @@ function buildCampaignTargets(locationIndex,ox,oz){
     const lintel=new THREE.Mesh(new THREE.BoxGeometry(8.8,0.8,0.8),mat);lintel.position.y=8;frame.add(lintel);
     const bars=new THREE.Mesh(new THREE.BoxGeometry(7.2,6.5,0.35),mat);bars.position.set(0,3.5,0);frame.add(bars);
     const chain=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,5.5,8),gold);chain.position.set(0,6.5,0.28);frame.add(chain);frame.position.set(x,y,z);scene.add(frame);envObjects.push({mesh:frame});
+    const gateOpen=!!campaignProgress.castleChainShot;bars.visible=!gateOpen;chain.visible=!gateOpen;
     chainTarget={x,y:y+6.5,z:z+0.3,mesh:chain,gate:bars};
   }
 }
