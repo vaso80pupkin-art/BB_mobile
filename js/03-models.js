@@ -634,7 +634,7 @@ function attachConfiguredEnemyModel(enemy,key){
   enemy.mesh.add(visual);
   const rigType=key==='moonPresence'?'spider':'humanoid';
   enemy.proceduralRig=clips.length?null:createProceduralSkeleton(visual,rigType);
-  if(!enemy.proceduralRig) setEnemyModelLayers(enemy,true);
+  if(!clips.length&&!enemy.proceduralRig) setEnemyModelLayers(enemy,true);
   enemy.modelRoot=visual;
   enemy.modelBaseY=visual.position.y;
   enemy.modelBaseZ=visual.position.z;
