@@ -644,15 +644,28 @@ function startGame(loadSave){
   }
 }
 
+function getFullscreenElement(){
+  return document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement||document.msFullscreenElement||null;
+}
 async function requestLandscapeMode(){
-  if(!window.matchMedia('(orientation: portrait)').matches) return;
-  try{
-    const root=document.documentElement;
-    if(!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
-    if(screen.orientation && typeof screen.orientation.lock==='function') await screen.orientation.lock('landscape');
-  }catch(err){
-    console.warn('[BB] Не удалось автоматически заблокировать горизонтальную ориентацию; поверните устройство вручную.',err);
+  const root=document.documentElement;
+  if(!getFullscreenElement()){
+    const request=root.requestFullscreen||root.webkitRequestFullscreen||root.mozRequestFullScreen||root.msRequestFullscreen;
+    if(request){
+      try{const result=request.call(root);if(result&&result.then) await result;}
+      catch(err){
+        console.warn('[BB] Не удалось включить полный экран автоматически.',err);
+        if(window.matchMedia('(orientation: landscape)').matches) notify('НАЖМИТЕ ⛶ ДЛЯ ПОЛНОГО ЭКРАНА');
+      }
+    }
   }
+  if(window.matchMedia('(orientation: portrait)').matches&&screen.orientation&&typeof screen.orientation.lock==='function'){
+    try{await screen.orientation.lock('landscape');}
+    catch(err){console.warn('[BB] Не удалось автоматически заблокировать горизонтальную ориентацию; поверните устройство вручную.',err);}
+  }
+}
+function requestFullscreenAfterRotation(){
+  if(window.matchMedia('(orientation: landscape)').matches&&!getFullscreenElement()) requestLandscapeMode();
 }
 
 window.addEventListener('load', () => {
@@ -660,6 +673,8 @@ window.addEventListener('load', () => {
   const btnContinue = $('btnContinue');
   const btnLandscapeMode = $('btnLandscapeMode');
   if(btnLandscapeMode) btnLandscapeMode.addEventListener('click', requestLandscapeMode);
+  window.addEventListener('orientationchange',requestFullscreenAfterRotation);
+  if(screen.orientation&&typeof screen.orientation.addEventListener==='function') screen.orientation.addEventListener('change',requestFullscreenAfterRotation);
   if(btnStart){
     btnStart.addEventListener('click', () => {
       try {
