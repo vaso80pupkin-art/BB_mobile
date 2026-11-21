@@ -701,7 +701,7 @@ function buildLocationLandmarks(locationIndex,ox,oz){
   const pineMat=new THREE.MeshStandardMaterial({color:0x26362d,roughness:1}),rockMat=new THREE.MeshStandardMaterial({color:locationIndex===3?0x312931:0x4a4643,roughness:0.96});
   const addInstances=(geometry,material,items)=>{
     if(!items.length)return;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();
-    items.forEach(o=>{dummy.position.set(o.x,o.y,o.z);dummy.rotation.set(o.rx||0,o.ry||0,o.rz||0);dummy.scale.set(o.sx||1,o.sy||1,o.sz||1);dummy.updateMatrix();mesh.setMatrixAt(items.indexOf(o),dummy.matrix);});
+    items.forEach((o,index)=>{dummy.position.set(o.x,o.y,o.z);dummy.rotation.set(o.rx||0,o.ry||0,o.rz||0);dummy.scale.set(o.sx||1,o.sy||1,o.sz||1);dummy.updateMatrix();mesh.setMatrixAt(index,dummy.matrix);});
     mesh.castShadow=false;mesh.receiveShadow=true;scene.add(mesh);envObjects.push({mesh});
   };
   // Visually dress route edges and open courtyards with instanced scenery, not hundreds of standalone meshes.
@@ -716,7 +716,8 @@ function buildLocationLandmarks(locationIndex,ox,oz){
   if(locationIndex===0||locationIndex===2){
     addInstances(treeGeo,treeMat,trees);addInstances(pineGeo,pineMat,trees.map(t=>({x:t.x,y:t.y+5.1,z:t.z,sx:t.sy,sy:t.sy,sz:t.sy})));
   }
-  addInstances(rockGeo,rockMat,rocks);addInstances(rockGeo,locationIndex===3?rockMat:new THREE.MeshStandardMaterial({color:0x493b36,roughness:1}),props);
+  addInstances(rockGeo,rockMat,rocks);
+  if(props.length)addInstances(rockGeo,locationIndex===3?rockMat:new THREE.MeshStandardMaterial({color:0x493b36,roughness:1}),props);
   if(locationIndex===3){
     const webMat=new THREE.LineBasicMaterial({color:0xb9b1a6,transparent:true,opacity:0.22});
     for(let i=0;i<10;i++){
@@ -780,6 +781,29 @@ function createDistantHorizon(locationIndex){
     };
   }
   const extent = Math.max(STAGE_WORLD_WIDTH,STAGE_WORLD_DEPTH)/2 + 24;
+  if(locationIndex===2){
+    const trees=[],crowns=[],dummy=new THREE.Object3D();
+    for(let side=0;side<4;side++){
+      for(let i=0;i<6;i++){
+        const along=-extent+4+i*((extent-4)*2/5);
+        const x=side<2?along:(side===2?-extent:extent);
+        const z=side<2?(side===0?-extent:extent):along;
+        const width=5+Math.random()*4,depth=5+Math.random()*4,height=13+Math.random()*15;
+        trees.push({x,z,width,height,depth});
+        for(let tier=0;tier<3;tier++)crowns.push({x,z,y:height*(0.43+tier*0.19),width:width*(1-tier*0.18),height:height*0.48});
+      }
+    }
+    const trunks=new THREE.InstancedMesh(horizonAssets.trunk,horizonAssets.house,trees.length);
+    const pines=new THREE.InstancedMesh(horizonAssets.pine,horizonAssets.forest,crowns.length);
+    trees.forEach((tree,index)=>{
+      dummy.position.set(tree.x,tree.height*0.31,tree.z);dummy.scale.set(tree.width*0.15,tree.height*0.62,tree.width*0.15);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix);
+    });
+    crowns.forEach((crown,index)=>{
+      dummy.position.set(crown.x,crown.y,crown.z);dummy.scale.set(crown.width,crown.height,crown.width);dummy.updateMatrix();pines.setMatrixAt(index,dummy.matrix);
+    });
+    [trunks,pines].forEach(mesh=>{mesh.castShadow=false;mesh.receiveShadow=false;mesh.instanceMatrix.needsUpdate=true;scene.add(mesh);envObjects.push({mesh});});
+    return;
+  }
   for(let side=0;side<4;side++){
     for(let i=0;i<6;i++){
       const along = -extent+4+i*((extent-4)*2/5);
