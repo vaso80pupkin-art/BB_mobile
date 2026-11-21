@@ -627,6 +627,7 @@ function startGame(loadSave){
   try {
     if(!loadSave){
       SaveSystem.clear();
+      campaignProgress = {cityBoss:false,buildingBoss:false,mountainBoss:false,liftActivated:false,castleChainShot:false,brokenSecrets:{}};
       player.hp = 100; player.maxHp = 100;
       player.level = 10;
       player.stats = {vig:10,end:10,str:10,skl:10,blt:10};
