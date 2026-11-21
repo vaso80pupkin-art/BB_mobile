@@ -321,9 +321,11 @@ function setupMenuScene(){
   const menuLight = new THREE.PointLight(0xdd7733, 2.2, 22, 2);
   menuLight.position.set(3, 4, 3);
   scene.add(menuLight);
+  envObjects.push({mesh:menuLight});
   const menuLight2 = new THREE.PointLight(0x4455aa, 1.5, 22, 2);
   menuLight2.position.set(-3, 4, -3);
   scene.add(menuLight2);
+  envObjects.push({mesh:menuLight2});
 
   spawnDustMotes(30);
   menuOrbitTime = 0;

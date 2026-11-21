@@ -548,7 +548,7 @@ function loop(){
   for(let i = bloodParticles.length-1;i>=0;i--){
     const bp = bloodParticles[i];
     bp.life -= dt;
-    if(bp.life<=0){ scene.remove(bp.mesh); bloodParticles.splice(i,1); continue; }
+    if(bp.life<=0){ scene.remove(bp.mesh); disposeTransientEffectResources(bp.mesh); bloodParticles.splice(i,1); continue; }
     const pos = bp.mesh.geometry.attributes.position.array;
     for(let j=0;j<bp.velocities.length;j++){
       bp.velocities[j].y -= 0.025;
@@ -565,6 +565,7 @@ function loop(){
     if(t.life <= 0){
       scene.remove(t.mesh);
       if(t.light) scene.remove(t.light);
+      disposeTransientEffectResources(t.mesh);
       attackTrails.splice(i,1);
       continue;
     }
@@ -574,7 +575,7 @@ function loop(){
   for(let i = parryIndicators.length-1;i>=0;i--){
     const p = parryIndicators[i];
     p.life -= dt;
-    if(p.life <= 0){ scene.remove(p.mesh); parryIndicators.splice(i,1); continue; }
+    if(p.life <= 0){ scene.remove(p.mesh); disposeTransientEffectResources(p.mesh); parryIndicators.splice(i,1); continue; }
     p.mesh.material.opacity = p.life/p.maxLife;
     p.mesh.rotation.z += 0.1;
   }
@@ -588,6 +589,7 @@ function loop(){
     if(p.life <= 0 || p.mesh.position.y < 0){
       if(p.type === 'molotov') explodeMolotov(p.mesh.position);
       scene.remove(p.mesh);
+      disposeTransientEffectResources(p.mesh);
       toolProjectiles.splice(i,1);
       continue;
     }
@@ -600,6 +602,7 @@ function loop(){
           if(e.hp <= 0) killEnemy(e);
         }
         scene.remove(p.mesh);
+        disposeTransientEffectResources(p.mesh);
         toolProjectiles.splice(i,1);
         break;
       }

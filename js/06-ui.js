@@ -56,8 +56,10 @@ function loadDream(){
 
   const dreamLight1 = new THREE.PointLight(0x7755dd, 1.6, 25, 2);
   dreamLight1.position.set(3, 4, 2); scene.add(dreamLight1);
+  envObjects.push({mesh:dreamLight1});
   const dreamLight2 = new THREE.PointLight(0x5566dd, 1.6, 25, 2);
   dreamLight2.position.set(-6, 4, -3); scene.add(dreamLight2);
+  envObjects.push({mesh:dreamLight2});
 
   if(hunter){
     hunter.position.set(0,0,5);
@@ -935,6 +937,7 @@ function killEnemy(enemy){
   enemy._defeated=true;
   if(enemy.hpBar){ scene.remove(enemy.hpBar.bg); scene.remove(enemy.hpBar.fill); }
   scene.remove(enemy.mesh);
+  disposeWorldObjectResources(enemy.mesh,collectSharedWorldResources(),{geometries:new Set(),materials:new Set()});
   enemies = enemies.filter(e=>e!==enemy);
   player.echoes += enemy.echoes;
   player.kills++;

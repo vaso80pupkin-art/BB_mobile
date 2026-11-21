@@ -106,6 +106,19 @@ function spawnDmg(pos, value, type='normal'){
   $('dmgContainer').appendChild(el);
   setTimeout(()=>el.remove(),1200);
 }
+function disposeTransientEffectResources(root){
+  if(!root) return;
+  const geometries=new Set(),materials=new Set();
+  const disposeNode=node=>{
+    if(node.geometry&&!geometries.has(node.geometry)){geometries.add(node.geometry);node.geometry.dispose();}
+    if(node.material){
+      const list=Array.isArray(node.material)?node.material:[node.material];
+      list.forEach(material=>{if(material&&!materials.has(material)){materials.add(material);material.dispose();}});
+    }
+  };
+  if(typeof root.traverse==='function') root.traverse(disposeNode);
+  else disposeNode(root);
+}
 function spawnBlood(pos,count=15,color=0x880000){
   if(!scene) return;
   const geo = new THREE.BufferGeometry();
@@ -154,7 +167,7 @@ function createBloodStain(x, z, echoes, loc, floorY=0){
   bloodStainMesh = g;
 }
 function removeBloodStain(){
-  if(bloodStainMesh && scene) scene.remove(bloodStainMesh);
+  if(bloodStainMesh && scene){ scene.remove(bloodStainMesh); disposeTransientEffectResources(bloodStainMesh); }
   bloodStainMesh = null;
   bloodStain = null;
 }
