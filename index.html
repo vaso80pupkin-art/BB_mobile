@@ -14,6 +14,12 @@
 html,body{width:100%;height:100%}
 body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none;touch-action:none;color:#fff}
 #canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1}
+#orientationOverlay{display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,#211813,#050404 76%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;color:#ddb858}
+#orientationOverlay .rotate-icon{font-size:64px;line-height:1;margin-bottom:20px}
+#orientationOverlay h1{font:700 22px 'Cinzel Decorative',serif;letter-spacing:3px;margin-bottom:10px}
+#orientationOverlay p{font-size:13px;color:#b8a27a;max-width:340px;line-height:1.6;margin-bottom:18px}
+#btnLandscapeMode{background:#211408;border:1px solid #a88838;color:#ddb858;padding:12px 20px;font:700 13px 'Cinzel',serif;letter-spacing:2px;touch-action:manipulation}
+@media (orientation:portrait){#orientationOverlay{display:flex}}
 .screen{position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;flex-direction:column;background:#000;z-index:10}
 .screen.active{display:flex}
 #mainMenu{background:radial-gradient(ellipse at 50% 30%,rgba(90,10,10,0.4),transparent 60%),radial-gradient(ellipse at 50% 90%,rgba(40,6,6,0.55),transparent 70%),linear-gradient(180deg,#030102 0%,#0d0405 45%,#050202 100%)}
@@ -418,6 +424,12 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 </head>
 <body>
 <div id="canvas-container"></div>
+<div id="orientationOverlay" role="dialog" aria-modal="true" aria-labelledby="orientationTitle">
+  <div class="rotate-icon" aria-hidden="true">↻</div>
+  <h1 id="orientationTitle">ПОВЕРНИТЕ УСТРОЙСТВО</h1>
+  <p>Игра поддерживает только горизонтальную ориентацию. Нажмите кнопку для блокировки экрана или поверните устройство вручную.</p>
+  <button id="btnLandscapeMode">ВКЛЮЧИТЬ ГОРИЗОНТАЛЬНЫЙ РЕЖИМ</button>
+</div>
 
 <div class="hud" id="gameHUD">
   <div class="vignette" id="vignette"></div>
@@ -2104,7 +2116,7 @@ function requestEnemyVisualModel(key){
     if(hunterEnemyBundle){ enemies.filter(enemy=>enemy.visualModelKey==='skullHunter' && !enemy.modelRoot).forEach(attachHunterEnemyModel); return; }
     if(hunterEnemyLoadStarted) return;
     hunterEnemyLoadStarted=true;
-    modelLoader.load('./MOB/CherepKinjalMob3D/CherepKinjalMob.glb',gltf=>{
+    modelLoader.load('./MOB/hunter/hunter.glb',gltf=>{
       hunterEnemyBundle=gltf; extraModelBundles.skullHunter=gltf;
       enemies.filter(enemy=>enemy.visualModelKey==='skullHunter').forEach(attachHunterEnemyModel);
     },undefined,error=>console.warn('[BB] Не удалось загрузить модель охотника/Тени Ярнама.',error));
@@ -5138,12 +5150,26 @@ function startGame(loadSave){
   }
 }
 
+async function requestLandscapeMode(){
+  if(!window.matchMedia('(orientation: portrait)').matches) return;
+  try{
+    const root=document.documentElement;
+    if(!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
+    if(screen.orientation && typeof screen.orientation.lock==='function') await screen.orientation.lock('landscape');
+  }catch(err){
+    console.warn('[BB] Не удалось автоматически заблокировать горизонтальную ориентацию; поверните устройство вручную.',err);
+  }
+}
+
 window.addEventListener('load', () => {
   const btnStart = $('btnStart');
   const btnContinue = $('btnContinue');
+  const btnLandscapeMode = $('btnLandscapeMode');
+  if(btnLandscapeMode) btnLandscapeMode.addEventListener('click', requestLandscapeMode);
   if(btnStart){
     btnStart.addEventListener('click', () => {
       try {
+        requestLandscapeMode();
         initAudio();
         sfx('menu');
         startGame(false);
@@ -5156,6 +5182,7 @@ window.addEventListener('load', () => {
   if(btnContinue){
     btnContinue.addEventListener('click', () => {
       try {
+        requestLandscapeMode();
         initAudio();
         sfx('menu');
         SaveSystem.load();
