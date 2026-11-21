@@ -427,7 +427,11 @@ function createProceduralSkeleton(visual,archetype){
     if(!source.geometry || !source.geometry.attributes.position) return;
     const cached=proceduralSkinGeometry(source.geometry,archetype);
     const parent=source.parent;
-    const skin=new THREE.SkinnedMesh(cached.geometry,source.material);
+    const skinMaterial=Array.isArray(source.material)
+      ? source.material.map(material=>{const clone=material.clone();clone.skinning=true;return clone;})
+      : source.material.clone();
+    if(!Array.isArray(skinMaterial)) skinMaterial.skinning=true;
+    const skin=new THREE.SkinnedMesh(cached.geometry,skinMaterial);
     skin.name=source.name; skin.position.copy(source.position); skin.quaternion.copy(source.quaternion); skin.scale.copy(source.scale);
     skin.castShadow=source.castShadow; skin.receiveShadow=source.receiveShadow; skin.renderOrder=source.renderOrder;
     skin.frustumCulled=false;
@@ -621,7 +625,6 @@ function scheduleEnemyModelAttachment(){
 }
 function queueEnemyModelAttachment(enemy,key){
   if(!enemy||!key||!enemies.includes(enemy)||enemyModelAttachQueue.some(item=>item.enemy===enemy)) return;
-  if(key==='skullHunter'&&enemy.type!=='boss') return;
   if(key==='spider'){
     const bundle=spiderModelBundle||spiderFallbackBundle;
     if(!bundle||(enemy.modelRoot&&enemy.modelBundle===bundle)) return;
@@ -708,7 +711,7 @@ function attachConfiguredEnemyModel(enemy,key){
 function requestEnemyVisualModel(key){
   if(!modelLoader) return;
   if(key==='skullHunter'){
-    if(!enemies.some(enemy=>enemy.type==='boss'&&enemy.visualModelKey==='skullHunter')) return;
+    if(!enemies.some(enemy=>enemy.visualModelKey==='skullHunter')) return;
     if(hunterEnemyBundle){ queueEnemyModelAttachments('skullHunter'); return; }
     if(hunterModelSource){
       hunterEnemyBundle={scene:hunterModelSource,animations:hunterModelClips||[]};
