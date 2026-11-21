@@ -1,4 +1,4 @@
-function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceiling=false){
+function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceiling=false,segmentSpacing=3){
   if(!scene) return;
   const surfaces=createSurfaceTextures();
   surfaces.floor.repeat.set(Math.max(1,width/4.5),Math.max(1,depth/4.5));
@@ -16,7 +16,7 @@ function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceilin
     });
     regions=next;
   });
-  regions.forEach(r=>addCobblePatch(r.x1-r.x0,r.z1-r.z0,(r.x0+r.x1)/2,(r.z0+r.z1)/2,levelY,ceiling));
+  regions.forEach(r=>addCobblePatch(r.x1-r.x0,r.z1-r.z0,(r.x0+r.x1)/2,(r.z0+r.z1)/2,levelY,ceiling,segmentSpacing));
 }
 
 let roomWallUnitGeometry=null;

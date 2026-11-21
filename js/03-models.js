@@ -927,10 +927,10 @@ function getLanternGlowMaterial(){
   return lanternGlowMaterial;
 }
 
-function addCobblePatch(width,depth,cx,cz,y,ceiling=false){
+function addCobblePatch(width,depth,cx,cz,y,ceiling=false,segmentSpacing=3){
   if(width<0.5 || depth<0.5) return;
   const surfaces=createSurfaceTextures();
-  const geo=new THREE.PlaneGeometry(width,depth,Math.max(1,Math.min(96,Math.ceil(width/3))),Math.max(1,Math.min(72,Math.ceil(depth/3))));
+  const geo=new THREE.PlaneGeometry(width,depth,Math.max(1,Math.min(96,Math.ceil(width/segmentSpacing))),Math.max(1,Math.min(72,Math.ceil(depth/segmentSpacing))));
   const pos=geo.attributes.position;
   for(let i=0;i<pos.count;i++) pos.setZ(i,(Math.random()-0.5)*0.035);
   geo.computeVertexNormals();
