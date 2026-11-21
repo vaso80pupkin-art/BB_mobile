@@ -528,6 +528,7 @@ function updateStageMechanics(dt){
         updateStageLocationLabel(true);
       }
       elevator.rider=false;
+      sfx('liftStop');
       notify('ЛИФТ ПРИБЫЛ');
     }
     elevator.cabin.position.y=elevator.currentY;
@@ -565,7 +566,7 @@ function activateNearbyWorldObject(){
     gate.opened=true;gate.group.remove(gate.panel);wallColliders=wallColliders.filter(box=>box!==gate.collider);
     gate.levers.forEach(lever=>lever.handle.material.color.setHex(0x44bb66));
     worldInteractables=worldInteractables.filter(entry=>entry.gate!==gate);
-    sfx('lantern');notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
+    sfx('lever');notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
     return;
   }
   const elevator=item.elevator;
@@ -584,7 +585,7 @@ function activateNearbyWorldObject(){
     elevator.targetY=elevator.currentY<(elevator.lowerY+elevator.upperY)/2?elevator.upperY:elevator.lowerY;
     elevator.rider=true;
   }
-  elevator.moving=true;sfx('lantern');
+  elevator.moving=true;sfx('liftStart');
 }
 
 function getFloorHeightAt(x,z,currentY=0){

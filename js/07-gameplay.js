@@ -141,6 +141,7 @@ function updateEnemies(dt,time){
         if(d < e.attackRange && time - e.lastAttack > e.cooldown){
           e.state = 'attack'; e.stateTime = 0; e.lastAttack = time;
           e.lastAttackStartTime = time;
+          sfx('enemyAttack');
         }
         if(d > e.detectionRange*1.5){ e.state = 'returning'; e.stateTime = 0; }
         break;

@@ -142,12 +142,8 @@ let horizonAssets = null;
 
 let audioCtx = null, ambientNodes = null, lastFootstepTime = 0, sfxLoadPromise=null, sfxReverb=null, sfxLoadDone=false;
 const sfxBuffers=Object.create(null);
-const SFX_FILES={
-  step1:'step_stone_01.wav',step2:'step_stone_02.wav',step3:'step_stone_03.wav',step4:'step_stone_04.wav',
-  swingLight:'swing_light.wav',swingHeavy:'swing_heavy.wav',impact:'impact_flesh.wav',impactHeavy:'impact_heavy.wav',
-  parry:'parry_clang.wav',pistol:'pistol.wav',dodge:'dodge.wav',growl:'beast_growl.wav',menu:'menu_click.wav',
-  pickup:'item_pickup.wav',lantern:'lantern_clink.wav',wood:'wood_creak.wav',transform:'weapon_transform.wav',ambient:'hall_wind.wav'
-};
+let sfxNoiseBuffer=null;
+const SFX_FILES={};
 const SFX_TYPES={
   slash:['swingLight',0.64,0.10],heavy:['swingHeavy',0.72,0.22],gun:['pistol',0.82,0.2],hit:['impact',0.76,0.10],
   crit:['impactHeavy',0.85,0.22],visceral:['impactHeavy',0.95,0.26],alert:['lantern',0.34,0.16],vial:['pickup',0.50,0.18],
@@ -156,7 +152,21 @@ const SFX_TYPES={
   perfect:['parry',0.68,0.36],lantern:['lantern',0.58,0.28],weaponup:['transform',0.65,0.34],shard:['pickup',0.42,0.24],
   insight:['pickup',0.54,0.35],waystone:['pickup',0.48,0.38],doll:['pickup',0.35,0.28],parry:['parry',0.8,0.42],
   beast:['growl',0.64,0.24],gem:['pickup',0.50,0.28],frenzy:['growl',0.65,0.16],molotov:['swingHeavy',0.42,0.12],
-  throw:['swingLight',0.38,0.08],firepaper:['transform',0.40,0.12],ach:['pickup',0.72,0.4],bloop:['menu',0.26,0.03],lock:['menu',0.32,0.04]
+  throw:['swingLight',0.38,0.08],firepaper:['transform',0.40,0.12],ach:['pickup',0.72,0.4],bloop:['menu',0.26,0.03],lock:['menu',0.32,0.04],
+  enemyAttack:['enemyAttack',0.58,0.08],lever:['lever',0.64,0.18],liftStart:['liftStart',0.66,0.14],liftStop:['liftStop',0.58,0.2]
+};
+const SFX_SYNTH={
+  step1:['triangle',112,48,0.09,0.42,0.10,560],step2:['triangle',94,42,0.10,0.40,0.12,460],
+  step3:['triangle',126,54,0.08,0.40,0.09,620],step4:['triangle',102,46,0.10,0.42,0.11,500],
+  swingLight:['sawtooth',470,105,0.19,0.28,0.30,1500],swingHeavy:['sawtooth',230,42,0.36,0.38,0.40,850],
+  impact:['sine',145,48,0.17,0.62,0.55,800],impactHeavy:['sine',96,30,0.31,0.72,0.62,520],
+  parry:['triangle',1380,460,0.24,0.46,0.16,3200],pistol:['square',180,52,0.16,0.48,0.74,1300],
+  dodge:['sawtooth',560,110,0.22,0.20,0.38,1800],growl:['sawtooth',92,38,0.44,0.34,0.18,420],
+  menu:['sine',620,380,0.08,0.26,0.02,1800],pickup:['triangle',480,980,0.24,0.35,0.05,2400],
+  lantern:['triangle',1120,540,0.30,0.40,0.10,3200],wood:['triangle',205,82,0.22,0.28,0.28,620],
+  transform:['sawtooth',210,690,0.34,0.26,0.18,1500],enemyAttack:['sawtooth',300,72,0.24,0.38,0.32,1100],
+  lever:['triangle',360,145,0.25,0.40,0.20,1500],liftStart:['sawtooth',62,108,0.42,0.30,0.32,500],
+  liftStop:['triangle',190,54,0.20,0.48,0.34,1400]
 };
 let _lastRainTime = 0;
 
@@ -187,7 +197,8 @@ function preloadSoundEffects(){
   return sfxLoadPromise;
 }
 function playSfxSample(key,volume=0.6,reverb=0.12,rate=1){
-  if(!audioCtx || !sfxBuffers[key]) return false;
+  if(!audioCtx) return false;
+  if(!sfxBuffers[key]) return playProceduralSfx(key,volume,reverb,rate);
   try{
     const source=audioCtx.createBufferSource(),gain=audioCtx.createGain();
     source.buffer=sfxBuffers[key]; source.playbackRate.value=rate;
@@ -196,6 +207,41 @@ function playSfxSample(key,volume=0.6,reverb=0.12,rate=1){
     if(sfxReverb && reverb>0){const send=audioCtx.createGain();send.gain.value=reverb*volume*sfxVolume;source.connect(send);send.connect(sfxReverb);}
     source.start(); return true;
   }catch(e){return false;}
+}
+function playProceduralSfx(key,volume,reverb,rate){
+  const preset=SFX_SYNTH[key];
+  if(!audioCtx||!preset) return false;
+  try{
+    const [wave,startHz,endHz,duration,toneLevel,noiseLevel,cutoff]=preset;
+    const now=audioCtx.currentTime,dur=duration/Math.max(0.5,rate||1);
+    const output=audioCtx.createGain();
+    output.gain.value=Math.max(0.0001,volume*sfxVolume);
+    output.connect(audioCtx.destination);
+    if(sfxReverb&&reverb>0){const send=audioCtx.createGain();send.gain.value=reverb*volume*sfxVolume;output.connect(send);send.connect(sfxReverb);}
+    const envelope=(gain,peak)=>{
+      gain.gain.setValueAtTime(0.0001,now);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.001,peak),now+0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+dur);
+    };
+    if(toneLevel>0){
+      const oscillator=audioCtx.createOscillator(),filter=audioCtx.createBiquadFilter(),gain=audioCtx.createGain();
+      oscillator.type=wave;oscillator.frequency.setValueAtTime(startHz*(rate||1),now);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1,endHz*(rate||1)),now+dur);
+      filter.type='lowpass';filter.frequency.setValueAtTime(cutoff,now);filter.frequency.exponentialRampToValueAtTime(Math.max(120,cutoff*0.35),now+dur);
+      envelope(gain,toneLevel);oscillator.connect(filter);filter.connect(gain);gain.connect(output);oscillator.start(now);oscillator.stop(now+dur+0.01);
+    }
+    if(noiseLevel>0){
+      if(!sfxNoiseBuffer){
+        const length=Math.floor(audioCtx.sampleRate*0.5);sfxNoiseBuffer=audioCtx.createBuffer(1,length,audioCtx.sampleRate);
+        const data=sfxNoiseBuffer.getChannelData(0);for(let i=0;i<length;i++) data[i]=(Math.random()*2-1)*(1-i/length*0.18);
+      }
+      const noise=audioCtx.createBufferSource(),filter=audioCtx.createBiquadFilter(),gain=audioCtx.createGain();
+      noise.buffer=sfxNoiseBuffer;filter.type='lowpass';filter.frequency.setValueAtTime(cutoff,now);
+      filter.frequency.exponentialRampToValueAtTime(Math.max(100,cutoff*0.25),now+dur);
+      envelope(gain,noiseLevel);noise.connect(filter);filter.connect(gain);gain.connect(output);noise.start(now);noise.stop(now+dur+0.01);
+    }
+    return true;
+  }catch(e){console.warn('[BB] Procedural sound failed:',key,e);return false;}
 }
 function sfx(type){
   const cfg=SFX_TYPES[type];
