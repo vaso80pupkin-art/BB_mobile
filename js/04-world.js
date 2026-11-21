@@ -57,31 +57,34 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
   const edge=new THREE.MeshStandardMaterial({color:isStone?0x4a454b:(isRope?0x39281c:0x31231c),roughness:0.86,metalness:isStone?0.14:0.02});
   if(isRope){
     const rungCount=Math.floor(run/1.15);
+    const rungGeometry=new THREE.CylinderGeometry(0.12,0.12,width,8);
     for(let i=0;i<=rungCount;i++){
-      const t=i/rungCount, rung=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,width,8),treadMaterial);
+      const t=i/rungCount, rung=new THREE.Mesh(rungGeometry,treadMaterial);
       rung.rotation.z=Math.PI/2; rung.position.set(0,lowerY+t*rise,zOffset(t,run)); rung.castShadow=true; group.add(rung);
     }
     const ropeLength=Math.sqrt(run*run+rise*rise),ropeAngle=Math.atan2(run,rise);
+    const ropeGeometry=new THREE.CylinderGeometry(0.075,0.075,ropeLength,8),anchorGeometry=new THREE.SphereGeometry(0.18,10,8);
     for(const side of [-1,1]){
-      const rope=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,ropeLength,8),edge);
+      const rope=new THREE.Mesh(ropeGeometry,edge);
       rope.position.set(side*(width/2+0.1),(lowerY+upperY)/2,run/2);rope.rotation.x=ropeAngle;group.add(rope);
-      const anchor=new THREE.Mesh(new THREE.SphereGeometry(0.18,10,8),edge);
+      const anchor=new THREE.Mesh(anchorGeometry,edge);
       anchor.position.set(side*(width/2+0.1),upperY,run);group.add(anchor);
     }
   } else {
+    const boxGeometry=new THREE.BoxGeometry(1,1,1);
     for(let i=0;i<count;i++){
-      const treadSlab=new THREE.Mesh(new THREE.BoxGeometry(width,0.2,Math.max(0.45,tread-0.08)),treadMaterial);
+      const treadSlab=new THREE.Mesh(boxGeometry,treadMaterial);treadSlab.scale.set(width,0.2,Math.max(0.45,tread-0.08));
       treadSlab.position.set(0,lowerY+(i+1)*stepRise-0.1,(i+0.5)*tread);treadSlab.castShadow=true;treadSlab.receiveShadow=true;group.add(treadSlab);
-      const riser=new THREE.Mesh(new THREE.BoxGeometry(width,Math.max(0.2,stepRise-0.16),0.15),edge);
+      const riser=new THREE.Mesh(boxGeometry,edge);riser.scale.set(width,Math.max(0.2,stepRise-0.16),0.15);
       riser.position.set(0,lowerY+(i+0.5)*stepRise,i*tread);riser.castShadow=true;group.add(riser);
     }
     const railLength=Math.sqrt(run*run+rise*rise),railAngle=Math.atan2(run,rise);
     for(const side of [-1,1]){
-      const rail=new THREE.Mesh(new THREE.BoxGeometry(isStone?0.22:0.16,railLength,isStone?0.34:0.22),edge);
+      const rail=new THREE.Mesh(boxGeometry,edge);rail.scale.set(isStone?0.22:0.16,railLength,isStone?0.34:0.22);
       rail.position.set(side*(width/2+0.12),(lowerY+upperY)/2+(isStone?0.92:0.86),run/2);rail.rotation.x=railAngle;rail.castShadow=true;group.add(rail);
       const postCount=Math.floor(run/4);
       for(let i=0;i<=postCount;i++){
-        const t=i/postCount,post=new THREE.Mesh(new THREE.BoxGeometry(0.2,1.0,0.2),edge);
+        const t=i/postCount,post=new THREE.Mesh(boxGeometry,edge);post.scale.set(0.2,1.0,0.2);
         post.position.set(side*(width/2+0.12),lowerY+t*rise+0.45,t*run);post.castShadow=true;group.add(post);
       }
     }
