@@ -553,6 +553,13 @@ function attachSpiderModel(enemy){
   if(!enemy || enemy.type !== 'spider') return;
   const bundle = spiderModelBundle || spiderFallbackBundle;
   if(!bundle || (enemy.modelRoot && enemy.modelBundle === bundle)) return;
+  queueEnemyModelAttachment(enemy,'spider');
+}
+
+function attachSpiderModelNow(enemy){
+  if(!enemy || enemy.type !== 'spider') return;
+  const bundle = spiderModelBundle || spiderFallbackBundle;
+  if(!bundle || (enemy.modelRoot && enemy.modelBundle === bundle)) return;
   if(enemy.modelRoot){
     if(enemy.modelMixer) enemy.modelMixer.stopAllAction();
     enemy.mesh.remove(enemy.modelRoot);
@@ -605,36 +612,49 @@ function attachHunterEnemyModel(enemy){
   }
 }
 
-let hunterEnemyAttachQueue=[];
-let hunterEnemyAttachScheduled=false;
-function scheduleHunterEnemyAttachment(){
-  if(hunterEnemyAttachScheduled||!hunterEnemyAttachQueue.length) return;
-  hunterEnemyAttachScheduled=true;
-  window.setTimeout(processHunterEnemyAttachment,16);
+let enemyModelAttachQueue=[];
+let enemyModelAttachScheduled=false;
+function scheduleEnemyModelAttachment(){
+  if(enemyModelAttachScheduled||!enemyModelAttachQueue.length) return;
+  enemyModelAttachScheduled=true;
+  window.setTimeout(processEnemyModelAttachment,16);
 }
-function queueHunterEnemyAttachment(enemy){
-  if(!enemy||enemy.modelRoot||!enemies.includes(enemy)||hunterEnemyAttachQueue.includes(enemy)) return;
-  hunterEnemyAttachQueue.push(enemy);
-  scheduleHunterEnemyAttachment();
+function queueEnemyModelAttachment(enemy,key){
+  if(!enemy||!key||!enemies.includes(enemy)||enemyModelAttachQueue.some(item=>item.enemy===enemy)) return;
+  if(key==='skullHunter'&&enemy.type!=='boss') return;
+  if(key==='spider'){
+    const bundle=spiderModelBundle||spiderFallbackBundle;
+    if(!bundle||(enemy.modelRoot&&enemy.modelBundle===bundle)) return;
+  } else if(enemy.modelRoot) return;
+  enemyModelAttachQueue.push({enemy,key});
+  scheduleEnemyModelAttachment();
 }
-function queueHunterEnemyAttachments(){
-  enemies.forEach(enemy=>{if(enemy.visualModelKey==='skullHunter') queueHunterEnemyAttachment(enemy);});
+function queueEnemyModelAttachments(key){
+  enemies.forEach(enemy=>{if(enemy.visualModelKey===key) queueEnemyModelAttachment(enemy,key);});
 }
-function processHunterEnemyAttachment(){
-  hunterEnemyAttachScheduled=false;
-  while(hunterEnemyAttachQueue.length){
-    const enemy=hunterEnemyAttachQueue.shift();
-    if(!enemy||!enemies.includes(enemy)||enemy.modelRoot) continue;
-    try{attachHunterEnemyModel(enemy);}
+function processEnemyModelAttachment(){
+  enemyModelAttachScheduled=false;
+  while(enemyModelAttachQueue.length){
+    const item=enemyModelAttachQueue.shift(),enemy=item&&item.enemy,key=item&&item.key;
+    if(!enemy||!key||!enemies.includes(enemy)) continue;
+    if(key==='spider'){
+      const bundle=spiderModelBundle||spiderFallbackBundle;
+      if(!bundle||(enemy.modelRoot&&enemy.modelBundle===bundle)) continue;
+    } else if(enemy.modelRoot) continue;
+    try{
+      if(key==='spider') attachSpiderModelNow(enemy);
+      else if(key==='skullHunter') attachHunterEnemyModel(enemy);
+      else attachConfiguredEnemyModel(enemy,key);
+    }
     catch(error){
       setEnemyModelLayers(enemy,true);
-      console.warn('[BB] Не удалось подключить модель охотника-врага; оставлена процедурная модель.',error);
+      console.warn('[BB] Не удалось подключить модель врага '+key+'; оставлена процедурная модель.',error);
     }
     break;
   }
-  scheduleHunterEnemyAttachment();
+  scheduleEnemyModelAttachment();
 }
-function clearHunterEnemyAttachQueue(){hunterEnemyAttachQueue.length=0;}
+function clearEnemyModelAttachQueue(){enemyModelAttachQueue.length=0;}
 
 const ENEMY_MODEL_ASSETS = {
   paladin: {path:'./MOB/paladin.glb',height:4.4,footprint:5.4},
@@ -688,35 +708,48 @@ function attachConfiguredEnemyModel(enemy,key){
 function requestEnemyVisualModel(key){
   if(!modelLoader) return;
   if(key==='skullHunter'){
-    if(hunterEnemyBundle){ queueHunterEnemyAttachments(); return; }
+    if(!enemies.some(enemy=>enemy.type==='boss'&&enemy.visualModelKey==='skullHunter')) return;
+    if(hunterEnemyBundle){ queueEnemyModelAttachments('skullHunter'); return; }
     if(hunterModelSource){
       hunterEnemyBundle={scene:hunterModelSource,animations:hunterModelClips||[]};
       extraModelBundles.skullHunter=hunterEnemyBundle;
-      queueHunterEnemyAttachments();
+      queueEnemyModelAttachments('skullHunter');
       return;
     }
     if(hunterEnemyLoadStarted) return;
     hunterEnemyLoadStarted=true;
     modelLoader.load('./MOB/hunter/hunter.glb',gltf=>{
       hunterEnemyBundle=gltf; extraModelBundles.skullHunter=gltf;
-      queueHunterEnemyAttachments();
+      queueEnemyModelAttachments('skullHunter');
     },undefined,error=>console.warn('[BB] Не удалось загрузить модель охотника/Тени Ярнама.',error));
+    return;
+  }
+  if(key==='moonPresence'){
+    const fallbackKey=ENEMY_MODEL_ASSETS.moonPresence.fallback;
+    if(extraModelBundles[fallbackKey]){
+      extraModelBundles.moonPresence=extraModelBundles[fallbackKey];
+      queueEnemyModelAttachments('moonPresence');
+    } else {
+      const waiting=extraModelFallbacks[fallbackKey]||(extraModelFallbacks[fallbackKey]=[]);
+      if(!waiting.includes('moonPresence')) waiting.push('moonPresence');
+      requestEnemyVisualModel(fallbackKey);
+    }
     return;
   }
   const asset=ENEMY_MODEL_ASSETS[key];
   if(!asset) return;
   if(extraModelBundles[key]){
-    enemies.filter(enemy=>enemy.visualModelKey===key).forEach(enemy=>attachConfiguredEnemyModel(enemy,key));
+    queueEnemyModelAttachments(key);
     return;
   }
   if(extraModelLoads[key]) return;
   extraModelLoads[key]=true;
   modelLoader.load(asset.path,gltf=>{
     extraModelBundles[key]=gltf;
-    enemies.filter(enemy=>enemy.visualModelKey===key).forEach(enemy=>attachConfiguredEnemyModel(enemy,key));
+    queueEnemyModelAttachments(key);
     (extraModelFallbacks[key]||[]).forEach(alias=>{
       extraModelBundles[alias]=gltf;
-      enemies.filter(enemy=>enemy.visualModelKey===alias).forEach(enemy=>attachConfiguredEnemyModel(enemy,alias));
+      queueEnemyModelAttachments(alias);
     });
   },undefined,error=>{
     console.warn('[BB] Не удалось загрузить модель врага '+key+'.',error);
@@ -724,9 +757,10 @@ function requestEnemyVisualModel(key){
       const fallbackKey=asset.fallback;
       if(extraModelBundles[fallbackKey]){
         extraModelBundles[key]=extraModelBundles[fallbackKey];
-        enemies.filter(enemy=>enemy.visualModelKey===key).forEach(enemy=>attachConfiguredEnemyModel(enemy,key));
+        queueEnemyModelAttachments(key);
       } else {
-        (extraModelFallbacks[fallbackKey]||(extraModelFallbacks[fallbackKey]=[])).push(key);
+        const waiting=extraModelFallbacks[fallbackKey]||(extraModelFallbacks[fallbackKey]=[]);
+        if(!waiting.includes(key)) waiting.push(key);
         requestEnemyVisualModel(fallbackKey);
       }
     }
@@ -780,7 +814,7 @@ function loadVisualAssets(){
     hunterEnemyBundle=gltf;
     extraModelBundles.skullHunter=gltf;
     mountHunterModel();
-    queueHunterEnemyAttachments();
+    queueEnemyModelAttachments('skullHunter');
   }, undefined, error=>{
     hunterEnemyLoadStarted=false;
     console.warn('[BB] Не удалось загрузить 3D-модель охотника; используется запасная модель.', error);
