@@ -453,7 +453,7 @@ function addShortcutGate(x,z,floorY,locationIndex,floorIndex){
   const group=new THREE.Group();
   const frameMat=new THREE.MeshStandardMaterial({color:0x302b2e,metalness:0.48,roughness:0.7});
   const panelMat=new THREE.MeshStandardMaterial({color:0x4a292a,metalness:0.38,roughness:0.68});
-  const width=5.45,height=5.3,thickness=0.46;
+  const width=5.45,height=10.6,thickness=0.46;
   const postGeo=new THREE.BoxGeometry(0.42,height+0.5,0.62);
   for(const side of [-1,1]){
     const post=new THREE.Mesh(postGeo,frameMat);post.position.set(x+side*(width/2+0.26),floorY+(height+0.5)/2,z);post.castShadow=true;group.add(post);
