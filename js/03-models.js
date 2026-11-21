@@ -605,6 +605,37 @@ function attachHunterEnemyModel(enemy){
   }
 }
 
+let hunterEnemyAttachQueue=[];
+let hunterEnemyAttachScheduled=false;
+function scheduleHunterEnemyAttachment(){
+  if(hunterEnemyAttachScheduled||!hunterEnemyAttachQueue.length) return;
+  hunterEnemyAttachScheduled=true;
+  window.setTimeout(processHunterEnemyAttachment,16);
+}
+function queueHunterEnemyAttachment(enemy){
+  if(!enemy||enemy.modelRoot||!enemies.includes(enemy)||hunterEnemyAttachQueue.includes(enemy)) return;
+  hunterEnemyAttachQueue.push(enemy);
+  scheduleHunterEnemyAttachment();
+}
+function queueHunterEnemyAttachments(){
+  enemies.forEach(enemy=>{if(enemy.visualModelKey==='skullHunter') queueHunterEnemyAttachment(enemy);});
+}
+function processHunterEnemyAttachment(){
+  hunterEnemyAttachScheduled=false;
+  while(hunterEnemyAttachQueue.length){
+    const enemy=hunterEnemyAttachQueue.shift();
+    if(!enemy||!enemies.includes(enemy)||enemy.modelRoot) continue;
+    try{attachHunterEnemyModel(enemy);}
+    catch(error){
+      setEnemyModelLayers(enemy,true);
+      console.warn('[BB] Не удалось подключить модель охотника-врага; оставлена процедурная модель.',error);
+    }
+    break;
+  }
+  scheduleHunterEnemyAttachment();
+}
+function clearHunterEnemyAttachQueue(){hunterEnemyAttachQueue.length=0;}
+
 const ENEMY_MODEL_ASSETS = {
   paladin: {path:'./MOB/paladin.glb',height:4.4,footprint:5.4},
   moonPresence: {path:'./MOB/spider/spider1.glb',height:8.5,footprint:11.5,fallback:'paladin'}
@@ -657,12 +688,18 @@ function attachConfiguredEnemyModel(enemy,key){
 function requestEnemyVisualModel(key){
   if(!modelLoader) return;
   if(key==='skullHunter'){
-    if(hunterEnemyBundle){ enemies.filter(enemy=>enemy.visualModelKey==='skullHunter' && !enemy.modelRoot).forEach(attachHunterEnemyModel); return; }
+    if(hunterEnemyBundle){ queueHunterEnemyAttachments(); return; }
+    if(hunterModelSource){
+      hunterEnemyBundle={scene:hunterModelSource,animations:hunterModelClips||[]};
+      extraModelBundles.skullHunter=hunterEnemyBundle;
+      queueHunterEnemyAttachments();
+      return;
+    }
     if(hunterEnemyLoadStarted) return;
     hunterEnemyLoadStarted=true;
     modelLoader.load('./MOB/hunter/hunter.glb',gltf=>{
       hunterEnemyBundle=gltf; extraModelBundles.skullHunter=gltf;
-      enemies.filter(enemy=>enemy.visualModelKey==='skullHunter').forEach(attachHunterEnemyModel);
+      queueHunterEnemyAttachments();
     },undefined,error=>console.warn('[BB] Не удалось загрузить модель охотника/Тени Ярнама.',error));
     return;
   }
@@ -736,11 +773,16 @@ function loadVisualAssets(){
   if(typeof MeshoptDecoder !== 'undefined' && modelLoader.setMeshoptDecoder){
     modelLoader.setMeshoptDecoder(MeshoptDecoder);
   }
+  hunterEnemyLoadStarted=true;
   modelLoader.load('./MOB/hunter/hunter.glb', gltf=>{
     hunterModelSource = gltf.scene;
     hunterModelClips = gltf.animations || [];
+    hunterEnemyBundle=gltf;
+    extraModelBundles.skullHunter=gltf;
     mountHunterModel();
+    queueHunterEnemyAttachments();
   }, undefined, error=>{
+    hunterEnemyLoadStarted=false;
     console.warn('[BB] Не удалось загрузить 3D-модель охотника; используется запасная модель.', error);
   });
   modelLoader.load('./MOB/spider/spider.glb', gltf=>{

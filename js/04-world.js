@@ -771,6 +771,7 @@ function updateWallTransparency(){
 
 function clearWorld(){
   if(!scene) return;
+  clearHunterEnemyAttachQueue();
   [...enemies,...chests,...lanterns,...envObjects].forEach(o=>{ if(o && o.mesh) scene.remove(o.mesh); });
   floorMeshes.forEach(floor=>scene.remove(floor));
   wallMeshes.forEach(w=>{ if(w.isDeco && typeof w.remove === 'function') w.remove(); else scene.remove(w); });
