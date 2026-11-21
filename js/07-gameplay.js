@@ -227,6 +227,7 @@ function updateEnemies(dt,time){
   });
 }
 let wallCollisionGrid=new Map();
+const wallCollisionCandidates=new Set();
 const WALL_GRID_SIZE=18;
 function wallGridKey(x,z){return Math.floor(x/WALL_GRID_SIZE)+','+Math.floor(z/WALL_GRID_SIZE);}
 function rebuildWallCollisionGrid(){
@@ -242,7 +243,8 @@ function rebuildWallCollisionGrid(){
   wallCollisionGrid=grid;
 }
 function checkWall(nx,nz,radius=0.55,entityY=hunter?hunter.position.y:0,bodyHeight=2.2){
-  const candidates=new Set();
+  const candidates=wallCollisionCandidates;
+  candidates.clear();
   if(wallCollisionGrid.size){
     for(let x=Math.floor((nx-radius)/WALL_GRID_SIZE);x<=Math.floor((nx+radius)/WALL_GRID_SIZE);x++)
       for(let z=Math.floor((nz-radius)/WALL_GRID_SIZE);z<=Math.floor((nz+radius)/WALL_GRID_SIZE);z++){
@@ -252,8 +254,9 @@ function checkWall(nx,nz,radius=0.55,entityY=hunter?hunter.position.y:0,bodyHeig
   } else wallColliders.forEach(w=>candidates.add(w));
   for(const w of candidates){
     if(entityY+bodyHeight<w.minY || entityY>w.maxY) continue;
-    if(nx+radius>w.minX && nx-radius<w.maxX && nz+radius>w.minZ && nz-radius<w.maxZ) return true;
+    if(nx+radius>w.minX && nx-radius<w.maxX && nz+radius>w.minZ && nz-radius<w.maxZ){candidates.clear();return true;}
   }
+  candidates.clear();
   return false;
 }
 function die(){
