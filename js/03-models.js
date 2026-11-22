@@ -721,7 +721,7 @@ function requestEnemyVisualModel(key){
     }
     if(hunterEnemyLoadStarted) return;
     hunterEnemyLoadStarted=true;
-    modelLoader.load('./MOB/hunter/hunter.glb',gltf=>{
+    modelLoader.load('./hunter_light.glb',gltf=>{
       hunterEnemyBundle=gltf; extraModelBundles.skullHunter=gltf;
       queueEnemyModelAttachments('skullHunter');
     },undefined,error=>console.warn('[BB] Не удалось загрузить модель охотника/Тени Ярнама.',error));
@@ -811,7 +811,7 @@ function loadVisualAssets(){
     modelLoader.setMeshoptDecoder(MeshoptDecoder);
   }
   hunterEnemyLoadStarted=true;
-  modelLoader.load('./MOB/hunter/hunter.glb', gltf=>{
+  modelLoader.load('./hunter_light.glb', gltf=>{
     hunterModelSource = gltf.scene;
     hunterModelClips = gltf.animations || [];
     hunterEnemyBundle=gltf;
