@@ -339,6 +339,7 @@ function loop(){
     if(hunter) hunter.rotation.y = Math.PI + menuOrbitTime * 0.3;
     if(hunterVisual) hunterVisual.position.y = hunterVisualBaseY + Math.sin(rawTime*1.7)*0.025;
     player.walkTime += 0.016*0.9; poseHunterModel('idle',rawTime); if(hunterMixer) hunterMixer.update(0.016);
+    updateHunterRig(0.016,0);
     updateRain(dtGlobal());
     renderer.render(scene, camera);
     return;
@@ -387,6 +388,7 @@ function loop(){
     camera.position.z = lerp(camera.position.z,camZ,0.05);
     camera.position.y = lerp(camera.position.y,hunter.position.y+Math.max(4.5,hunterVisualHeight*0.9),0.05);
     camera.lookAt(hunter.position.x,hunter.position.y+Math.max(1.5,hunterVisualHeight*0.55),hunter.position.z);
+    const dreamRigStartX=hunter.position.x,dreamRigStartZ=hunter.position.z;
     if(moveData.active){
       const speed = 0.1;
       const fwd = new THREE.Vector3(-Math.sin(cameraAngle),0,-Math.cos(cameraAngle));
@@ -398,6 +400,7 @@ function loop(){
       hunter.position.y=0;
       hunter.rotation.y = Math.atan2(mx,mz);
     }
+    updateHunterRig(dt,dt>0?Math.hypot(hunter.position.x-dreamRigStartX,hunter.position.z-dreamRigStartZ)/dt:0);
     if(doll) doll.position.y = Math.sin(rawTime)*0.05;
     checkDollProximity();
     updateRain(dt);
@@ -406,6 +409,7 @@ function loop(){
   }
   if(gameMode !== GameMode.PLAYING){ renderer.render(scene,camera); return; }
   if(player.isDead){ renderer.render(scene,camera); return; }
+  const hunterRigStartX=hunter.position.x,hunterRigStartZ=hunter.position.z;
   if(hunterVisual) hunterVisual.position.y = lerp(hunterVisual.position.y,hunterVisualBaseY,0.18);
   if(hunterMixer) hunterMixer.update(dt);
   if(!player.isAttacking && !player.isDodging && player.stamina < player.maxStamina){
@@ -446,7 +450,6 @@ function loop(){
     const wc = Math.sin(player.walkTime);
     if(hunterVisual){
       hunterVisual.position.y = lerp(hunterVisual.position.y,hunterVisualBaseY + Math.abs(wc)*0.022,0.16);
-      hunterVisual.rotation.z=lerp(hunterVisual.rotation.z,wc*0.012*sprintMult,0.14);
       hunterVisual.rotation.x=lerp(hunterVisual.rotation.x,0.008+Math.abs(wc)*0.006,0.14);
     }
     hunterParts.leftLeg.rotation.x = wc*0.2*sprintMult;
@@ -467,9 +470,11 @@ function loop(){
       if(!checkWall(nx,nz,0.65,hunter.position.y,Math.min(8.6,hunterVisualHeight))){ hunter.position.x = nx; hunter.position.z = nz; updateHunterFloor(); updateStageLocationLabel(false); }
       const progress=Math.min(1,player.dodgeTime/dodgeDuration);
       hunter.rotation.x=0;
-      if(player.dodgeType==='roll') hunterMotionPivot.rotation.x=-Math.PI*2*progress;
-      else if(player.dodgeType==='quickstep') hunterMotionPivot.rotation.z=Math.sin(progress*Math.PI)*(moveData.x<0?-0.14:0.14);
-      else hunterMotionPivot.rotation.z=Math.sin(progress*Math.PI)*0.08;
+      if(!hunterRig){
+        if(player.dodgeType==='roll') hunterMotionPivot.rotation.x=-Math.PI*2*progress;
+        else if(player.dodgeType==='quickstep') hunterMotionPivot.rotation.z=Math.sin(progress*Math.PI)*(moveData.x<0?-0.14:0.14);
+        else hunterMotionPivot.rotation.z=Math.sin(progress*Math.PI)*0.08;
+      }
       poseHunterModel('dodge',rawTime);
     } else {
       player.isDodging = false;
@@ -526,7 +531,6 @@ function loop(){
     if(hunterVisual){
       hunterVisual.position.y=lerp(hunterVisual.position.y,hunterVisualBaseY+Math.sin(player.walkTime*0.7)*0.018,0.08);
       hunterVisual.rotation.x=lerp(hunterVisual.rotation.x,0,0.12);
-      hunterVisual.rotation.z=lerp(hunterVisual.rotation.z,Math.sin(player.walkTime*0.55)*0.012,0.08);
     }
     hunterParts.torso.position.y = 1.25+b;
     hunterParts.leftLeg.rotation.x = lerp(hunterParts.leftLeg.rotation.x,0,0.18);
@@ -536,6 +540,8 @@ function loop(){
     hunterParts.coatBack.rotation.x = lerp(hunterParts.coatBack.rotation.x,0.3,0.18);
     poseHunterModel('idle',rawTime);
   }
+  const rigSpeed=dt>0?Math.hypot(hunter.position.x-hunterRigStartX,hunter.position.z-hunterRigStartZ)/dt:0;
+  updateHunterRig(dt,rigSpeed);
   player.gunRecoil=Math.max(0,player.gunRecoil-dt);
   updateWallTransparency();
   updateEnemies(dt,rawTime);

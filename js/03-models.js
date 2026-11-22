@@ -46,7 +46,8 @@ function rotateHunterModel(){
 
 window.addEventListener('keydown',event=>{
   if(!event.repeat && event.key && event.key.toLowerCase()==='t'){
-    modelFlip=!modelFlip; hunterModelYaw=modelFlip?Math.PI:0;
+    modelFlip=!modelFlip;
+    hunterModelYaw=hunterRig?Math.PI/2+(modelFlip?Math.PI:0):(modelFlip?Math.PI:0);
     try{ localStorage.setItem('bb_hunter_yaw',String(hunterModelYaw)); }catch(e){}
     if(hunterYawGroup) hunterYawGroup.rotation.y=hunterModelYaw;
     updateHunterAxes();
@@ -81,31 +82,78 @@ function playHunterClip(clip, once=false, timeScale=1, fade=0.15){
   hunterCurrentAction = next;
 }
 
+let hunterRig = null;
+let hunterRigActionState = null;
+function startHunterRigAction(action,duration){
+  if(!hunterRig || (action!=='shoot' && action!=='heal')) return;
+  const actionDuration=Number.isFinite(duration)&&duration>0?duration:(action==='shoot'?0.3:0.6);
+  hunterRigActionState={action,elapsed:0,duration:actionDuration};
+}
+function updateHunterRig(dt,speed=0){
+  if(!hunterRig) return;
+  const step=Number.isFinite(dt)?Math.max(0,dt):0;
+  let action='idle',t=0;
+  if(player.isDodging){
+    hunterRigActionState=null;
+    action='dodge';
+    t=Math.min(1,Math.max(0,player.dodgeTime/0.2));
+  }else if(player.isAttacking){
+    hunterRigActionState=null;
+    action='attack';
+    t=Math.min(1,Math.max(0,player.attackTime/0.34));
+  }else if(hunterRigActionState){
+    const state=hunterRigActionState;
+    state.elapsed=Math.min(state.duration,state.elapsed+step);
+    action=state.action;
+    t=state.duration?state.elapsed/state.duration:1;
+    if(state.elapsed>=state.duration) hunterRigActionState=null;
+  }
+  hunterRig.update(step,{speed:Number.isFinite(speed)?Math.max(0,speed):0,action,t});
+}
+
 function mountHunterModel(){
   if(!hunter || !hunterModelSource || hunterVisual) return;
   // cloneSkinned=true: корректно клонирует модели со скелетом
-  const model = fitVisualModel(hunterModelSource, 10.5, 5.8, true);
-  if(!model) return;
-  const height = model.userData.visualHeight || 10.5;
+  const modelRoot = new THREE.Group();
+  modelRoot.name = 'hunter-model-root';
+  let model = null;
+  if(hunterRig){
+    modelRoot.add(hunterRig.root);
+    model = modelRoot;
+  }else{
+    model = fitVisualModel(hunterModelSource, 10.5, 5.8, true);
+    if(!model) return;
+    modelRoot.add(model);
+  }
+  const height = hunterRig ? hunterRig.height : (model.userData.visualHeight || 10.5);
 
   // Автоподбор поворота, если игрок ещё не выбирал его вручную:
   // у человека в обычной позе ширина (плечи) больше глубины. Если модель вытянута по Z — она смотрит вбок.
   if(hunterModelYaw === null){
-    const box = new THREE.Box3().setFromObject(model), sz = new THREE.Vector3();
-    box.getSize(sz);
-    hunterModelYaw = sz.z > sz.x*1.15 ? -Math.PI/2 : 0;
-    console.log('[BB] Размер модели охотника', sz.x.toFixed(2), sz.y.toFixed(2), sz.z.toFixed(2), '→ поворот', hunterModelYaw);
+    if(hunterRig){
+      // В rig локальный перед модели направлен по -X, поэтому +90° совмещает его с +Z игры.
+      hunterModelYaw = Math.PI/2 + (modelFlip ? Math.PI : 0);
+    }else{
+      const box = new THREE.Box3().setFromObject(model), sz = new THREE.Vector3();
+      box.getSize(sz);
+      hunterModelYaw = sz.z > sz.x*1.15 ? -Math.PI/2 : 0;
+      console.log('[BB] Размер модели охотника', sz.x.toFixed(2), sz.y.toFixed(2), sz.z.toFixed(2), '→ поворот', hunterModelYaw);
+    }
   }
   updateHunterAxes();
 
   hunterMotionPivot.position.y = height * 0.5;
   hunterVisualRoot.position.y = -height * 0.5;
   hunterVisualRoot.children.forEach(child=>{ child.visible = false; });
+  if(hunterRig){
+    if(hunterParts.weapon) hunterParts.weapon.visible = false;
+    if(hunterParts.gun) hunterParts.gun.visible = false;
+  }
 
   // hunterVisual (наклоны/покачивание из цикла) → hunterYawGroup (поворот «лицом вперёд») → model
   hunterYawGroup = new THREE.Group();
   hunterYawGroup.rotation.y = hunterModelYaw;
-  hunterYawGroup.add(model);
+  hunterYawGroup.add(modelRoot);
   const visual = new THREE.Group();
   visual.add(hunterYawGroup);
   visual.userData.visualHeight = height;
@@ -118,7 +166,11 @@ function mountHunterModel(){
   model.traverse(n => { if(n.isSkinnedMesh) hasSkin = true; });
   console.log('[BB] Анимации в hunter.glb:', (hunterModelClips||[]).map(c=>c.name), '| skinned:', hasSkin);
 
-  if(hunterModelClips && hunterModelClips.length){
+  if(hunterRig){
+    hunterMixer=null;
+    hunterModelRig=null;
+    hunterAnimMode='none';
+  }else if(hunterModelClips && hunterModelClips.length){
     hunterMixer = new THREE.AnimationMixer(model);
     setupHunterClips();
     hunterAnimMode = (hunterClipMap.walk || hunterClipMap.run) ? 'clips' : 'body';
@@ -812,10 +864,13 @@ function loadVisualAssets(){
   }
   hunterEnemyLoadStarted=true;
   modelLoader.load('./hunter_light.glb', gltf=>{
-    hunterModelSource = gltf.scene;
+    const enemyScene = gltf.scene.clone(true);
+    hunterRig = typeof HunterRig !== 'undefined' ? HunterRig.build(gltf.scene) : null;
+    hunterModelSource = hunterRig ? enemyScene : gltf.scene;
     hunterModelClips = gltf.animations || [];
-    hunterEnemyBundle=gltf;
-    extraModelBundles.skullHunter=gltf;
+    hunterRigActionState=null;
+    hunterEnemyBundle=hunterRig ? {scene:enemyScene,animations:hunterModelClips} : gltf;
+    extraModelBundles.skullHunter=hunterEnemyBundle;
     mountHunterModel();
     queueEnemyModelAttachments('skullHunter');
   }, undefined, error=>{

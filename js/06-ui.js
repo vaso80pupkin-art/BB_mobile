@@ -1027,6 +1027,7 @@ function performGunshot(){
   if(player.stamina<12) return;
   if(player.bullets <= 0){ notify('НЕТ ПАТРОНОВ'); return; }
   player.stamina -= 12; player.bullets--; updateHUD();
+  startHunterRigAction('shoot',0.3);
   player.gunRecoil=0.22;
   sfx('gun');
   hunterParts.leftArm.rotation.x = -1.1;
@@ -1101,6 +1102,7 @@ function useVial(){
   if(player.vials<=0){ notify('НЕТ ЗЕЛИЙ'); return; }
   if(player.hp>=player.maxHp){ notify('ЗДОРОВЬЕ ПОЛНОЕ'); return; }
   player.vials--;
+  startHunterRigAction('heal',0.6);
   player.hp = Math.min(player.maxHp,player.hp+45);
   updateHUD();
   sfx('vial'); notify('ЗЕЛЬЕ ИСПОЛЬЗОВАНО');
