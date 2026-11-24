@@ -141,7 +141,7 @@ const BASE_SKY_DREAM     = 0x18142a;
 const BASE_WALL_COLOR    = 0x282534;
 const BASE_FLOOR_COLOR   = 0x161420;
 const LOCATION_MOODS = [
-  {sky:0x0a0d15, fog:0.029},
+  {sky:0x0a0d15, fog:0.029, brightness:0.5},
   {sky:0x12100f, fog:0.027},
   {sky:0x09110f, fog:0.034},
   {sky:0x100c1b, fog:0.030}

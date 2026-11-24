@@ -261,32 +261,39 @@ function spawnChest(x,z,floorY=0){
 function spawnLantern(x,z,isRespawn=false,floorY=0){
   if(!scene) return null;
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({color:0x1a1a1a,metalness:0.85,roughness:0.4});
+  const mat = new THREE.MeshStandardMaterial({color:0x302921,metalness:0.72,roughness:0.46});
+  const trimMat = new THREE.MeshStandardMaterial({color:0x76552c,metalness:0.76,roughness:0.34});
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.5,1.2,10),mat);
   base.position.y = 0.6; base.castShadow = true; g.add(base);
+  const baseTrim = new THREE.Mesh(new THREE.TorusGeometry(0.38,0.055,7,16),trimMat);
+  baseTrim.rotation.x = Math.PI/2; baseTrim.position.y = 1.08; g.add(baseTrim);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.14,5.5,10),mat);
   pole.position.y = 3.95; pole.castShadow = true; g.add(pole);
-  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.9,0.55),mat);
-  housing.position.y = 7.05; g.add(housing);
-  const glassMat = new THREE.MeshBasicMaterial({color:0xddbb55,transparent:true,opacity:0.95});
-  for(let i=0;i<4;i++){
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.8),glassMat);
-    glass.position.set(i<2?(i===0?0.28:-0.28):0,i>=2?(i===2?0.28:-0.28):0,7.05);
-    glass.rotation.y = i<2?0:(i===2?Math.PI/2:-Math.PI/2);
-    g.add(glass);
+  const glassMat = new THREE.MeshStandardMaterial({color:0x603818,emissive:0xff8a24,emissiveIntensity:0.24,transparent:true,opacity:0.58,roughness:0.32,side:THREE.DoubleSide,depthWrite:false});
+  const lowerBand = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.12,0.72),trimMat);lowerBand.position.y=6.55;g.add(lowerBand);
+  const upperBand = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.12,0.72),trimMat);upperBand.position.y=7.54;g.add(upperBand);
+  for(const [x,z] of [[-0.3,-0.3],[0.3,-0.3],[-0.3,0.3],[0.3,0.3]]){
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,1.0,7),trimMat);post.position.set(x,7.05,z);post.castShadow=true;g.add(post);
   }
-  const light = new THREE.PointLight(isRespawn?0xddc088:0xdd9933, isRespawn?8:6, isRespawn?40:32, 2);
+  const paneGeometry = new THREE.PlaneGeometry(0.56,0.78);
+  for(const [x,z,yaw] of [[0,0.31,0],[0,-0.31,Math.PI],[0.31,0,Math.PI/2],[-0.31,0,-Math.PI/2]]){
+    const pane = new THREE.Mesh(paneGeometry,glassMat);pane.position.set(x,7.05,z);pane.rotation.y=yaw;g.add(pane);
+  }
+  const crossbar = new THREE.Mesh(new THREE.BoxGeometry(0.67,0.055,0.67),trimMat);crossbar.position.y=7.05;g.add(crossbar);
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,8),new THREE.MeshBasicMaterial({color:0xff972f}));flame.position.y=7.05;g.add(flame);
+  const light = new THREE.PointLight(isRespawn?0xddc088:0xdd9933, isRespawn?4.0:2.8, isRespawn?22:18, 2);
   light.position.y = 7.05; light.castShadow = false; g.add(light);
   const glowSprite = new THREE.Sprite(getLanternGlowMaterial().clone());
   glowSprite.position.y = 7.05;
-  glowSprite.scale.set(isRespawn?6.2:4.8,isRespawn?6.2:4.8,1);
+  glowSprite.scale.set(isRespawn?4.2:3.3,isRespawn?4.2:3.3,1);
   glowSprite.renderOrder = 2;
   g.add(glowSprite);
-  const top = new THREE.Mesh(new THREE.ConeGeometry(0.45,0.6,12),mat);
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.5,0.52,4),mat);top.rotation.y=Math.PI/4;
   top.position.y = 7.7; top.castShadow = true; g.add(top);
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(0.09,8,6),trimMat);finial.position.y=8.0;g.add(finial);
   g.position.set(x,floorY,z);
   scene.add(g);
-  lanterns.push({mesh:g,light,glow:glowSprite,baseIntensity:isRespawn?8:6,isRespawn});
+  lanterns.push({mesh:g,light,glow:glowSprite,baseIntensity:isRespawn?4.0:2.8,isRespawn});
   return lanterns[lanterns.length-1];
 }
 

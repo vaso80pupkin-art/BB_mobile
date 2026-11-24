@@ -127,10 +127,11 @@ function makeLancetShape(width,height){
 function buildOedonChapelFoyer(room,floorY){
   if(!room||!scene) return;
   const group=new THREE.Group(),cx=room.roomX+cellSize*3.5,cz=room.roomZ+cellSize*3.5;
-  const stone=new THREE.MeshStandardMaterial({color:0x77716c,roughness:0.92,bumpMap:createSurfaceTextures().wallBump,bumpScale:0.08});
-  const darkStone=new THREE.MeshStandardMaterial({color:0x312d32,roughness:0.88,metalness:0.04});
-  const brass=new THREE.MeshStandardMaterial({color:0x756044,roughness:0.54,metalness:0.68});
-  const stained=[0x54657b,0x78434b,0x879071].map(color=>new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.24,roughness:0.4,transparent:true,opacity:0.92,side:THREE.DoubleSide,depthWrite:false}));
+  const surfaces=createSurfaceTextures();
+  const stone=new THREE.MeshStandardMaterial({color:0x25252c,roughness:0.96,bumpMap:surfaces.wallBump,bumpScale:0.16});
+  const darkStone=new THREE.MeshStandardMaterial({color:0x111116,roughness:0.94,metalness:0.02,bumpMap:surfaces.wallBump,bumpScale:0.1});
+  const brass=new THREE.MeshStandardMaterial({color:0x665035,roughness:0.68,metalness:0.58});
+  const stained=[0x17283a,0x32161d,0x20291e].map(color=>new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.025,roughness:0.58,transparent:true,opacity:0.94,side:THREE.DoubleSide,depthWrite:false}));
   const makeBox=(w,h,d,material,x,y,z)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;};
   const makeBeam=(a,b,width,depth,material)=>{
     const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start);
@@ -140,9 +141,11 @@ function buildOedonChapelFoyer(room,floorY){
     mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;
   };
 
-  const mosaic=new THREE.Mesh(new THREE.CircleGeometry(5.3,48),new THREE.MeshStandardMaterial({color:0x46434a,roughness:0.8,metalness:0.12}));
+  const floorWash=new THREE.Mesh(new THREE.PlaneGeometry(cellSize*mazeSize,cellSize*mazeSize),new THREE.MeshBasicMaterial({color:0x151923,transparent:true,opacity:0.38,depthWrite:false,side:THREE.DoubleSide,toneMapped:false}));
+  floorWash.rotation.x=-Math.PI/2;floorWash.position.set(cx,floorY+0.018,cz);group.add(floorWash);
+  const mosaic=new THREE.Mesh(new THREE.CircleGeometry(5.3,64),new THREE.MeshStandardMaterial({color:0x1c1d24,map:surfaces.floor,bumpMap:surfaces.floorBump,bumpScale:0.1,roughness:0.72,metalness:0.08}));
   mosaic.rotation.x=-Math.PI/2;mosaic.position.set(cx,floorY+0.045,cz);group.add(mosaic);
-  for(const [inner,outer,color] of [[4.1,4.28,0x85704d],[2.4,2.52,0x6c5050],[0.52,0.72,0x95835e]]){
+  for(const [inner,outer,color] of [[4.1,4.28,0x685334],[2.4,2.52,0x57383b],[0.52,0.72,0x756344]]){
     const ring=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),new THREE.MeshStandardMaterial({color,roughness:0.72,metalness:0.3,side:THREE.DoubleSide}));
     ring.rotation.x=-Math.PI/2;ring.position.set(cx,floorY+0.065,cz);group.add(ring);
   }
@@ -156,10 +159,17 @@ function buildOedonChapelFoyer(room,floorY){
     const left=[cx-11,floorY+9.7,z],right=[cx+11,floorY+9.7,z],peak=[cx,floorY+11.5,z];
     makeBeam(left,peak,0.52,0.62,stone);makeBeam(peak,right,0.52,0.62,stone);
   });
+  const frontPeak=[cx,floorY+11.5,cz+11],backPeak=[cx,floorY+11.5,cz-11],centerPeak=[cx,floorY+12.25,cz];
+  makeBeam(backPeak,centerPeak,0.42,0.52,stone);makeBeam(centerPeak,frontPeak,0.42,0.52,stone);
+  makeBeam([cx-11,floorY+11.5,cz],centerPeak,0.42,0.52,stone);makeBeam(centerPeak,[cx+11,floorY+11.5,cz],0.42,0.52,stone);
+  const columnAccentGeometry=new THREE.TorusGeometry(0.72,0.045,7,18);
   columnXs.forEach(x=>columnZs.forEach(z=>{
     for(const [radius,height,y,material] of [[0.92,0.48,0.24,darkStone],[0.68,8.55,4.75,stone],[0.9,0.55,9.3,darkStone],[1.08,0.38,9.76,stone]]){
       const piece=new THREE.Mesh(new THREE.CylinderGeometry(radius*0.94,radius,height,14),material);
       piece.position.set(x,floorY+y,z);piece.castShadow=true;piece.receiveShadow=true;group.add(piece);
+    }
+    for(const y of [floorY+0.66,floorY+8.9]){
+      const accent=new THREE.Mesh(columnAccentGeometry,brass);accent.rotation.x=Math.PI/2;accent.position.set(x,y,z);group.add(accent);
     }
     wallColliders.push({minX:x-0.68,maxX:x+0.68,minZ:z-0.68,maxZ:z+0.68,minY:floorY,maxY:floorY+9.5,cx:x,cy:floorY+4.75,cz:z,w:1.36,h:9.5,d:1.36,floorY});
   }));
@@ -171,9 +181,14 @@ function buildOedonChapelFoyer(room,floorY){
     frame.position.z=-0.11;window.add(frame);
     const glass=new THREE.Mesh(new THREE.ShapeGeometry(makeLancetShape(3.05,7.05)),stained[index%stained.length]);
     glass.position.set(0,0,0.12);window.add(glass);
-    const leadMat=new THREE.MeshStandardMaterial({color:0x25252c,roughness:0.68,metalness:0.22});
-    const mullion=new THREE.Mesh(new THREE.BoxGeometry(0.12,6.6,0.08),leadMat);mullion.position.set(0,3.2,0.17);window.add(mullion);
-    for(const y of [2.2,4.35]){const bar=new THREE.Mesh(new THREE.BoxGeometry(2.65,0.1,0.08),leadMat);bar.position.set(0,y,0.17);window.add(bar);}
+    const leadMat=new THREE.MeshStandardMaterial({color:0x20232c,roughness:0.62,metalness:0.28});
+    const mullion=new THREE.Mesh(new THREE.BoxGeometry(0.11,6.65,0.08),leadMat);mullion.position.set(0,3.2,0.17);window.add(mullion);
+    for(const xSide of [-0.72,0.72]){const bar=new THREE.Mesh(new THREE.BoxGeometry(0.07,5.9,0.08),leadMat);bar.position.set(xSide,3.0,0.17);window.add(bar);}
+    for(const y of [2.2,4.35,5.75]){const bar=new THREE.Mesh(new THREE.BoxGeometry(2.65,0.09,0.08),leadMat);bar.position.set(0,y,0.17);window.add(bar);}
+    const rose=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.045,6,18),brass);rose.position.set(0,6.15,0.18);window.add(rose);
+    for(let spoke=0;spoke<4;spoke++){
+      const ray=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.68,0.06),leadMat);ray.position.set(0,6.15,0.19);ray.rotation.z=spoke*Math.PI/4;window.add(ray);
+    }
     window.position.set(x,floorY+1.65,windowZ);group.add(window);
   });
 
@@ -181,7 +196,7 @@ function buildOedonChapelFoyer(room,floorY){
   makeBox(5.0,0.46,2.8,darkStone,cx,floorY+0.23,altarZ);
   makeBox(4.2,0.72,2.0,stone,cx,floorY+0.82,altarZ);
   makeBox(2.7,0.22,1.5,brass,cx,floorY+1.29,altarZ);
-  const drape=new THREE.Mesh(new THREE.ConeGeometry(1.1,2.2,5),new THREE.MeshStandardMaterial({color:0x40272c,roughness:0.95,side:THREE.DoubleSide}));
+  const drape=new THREE.Mesh(new THREE.ConeGeometry(1.1,2.2,5),new THREE.MeshStandardMaterial({color:0x1c0d12,roughness:0.98,bumpMap:surfaces.wallBump,bumpScale:0.05,side:THREE.DoubleSide}));
   drape.position.set(cx,floorY+2.45,altarZ-0.1);drape.rotation.y=Math.PI/5;drape.castShadow=true;group.add(drape);
 
   const urnPoints=[new THREE.Vector2(0,0),new THREE.Vector2(0.36,0),new THREE.Vector2(0.52,0.24),new THREE.Vector2(0.45,0.48),new THREE.Vector2(0.68,0.82),new THREE.Vector2(0.62,1.15),new THREE.Vector2(0.38,1.38),new THREE.Vector2(0.4,1.52),new THREE.Vector2(0.5,1.58),new THREE.Vector2(0,1.58)];
@@ -193,8 +208,8 @@ function buildOedonChapelFoyer(room,floorY){
     const rim=new THREE.Mesh(new THREE.TorusGeometry(0.47,0.07,8,18),brass);rim.rotation.x=Math.PI/2;rim.position.set(x,floorY+2.0,z);group.add(rim);
   }
 
-  const candleMat=new THREE.MeshStandardMaterial({color:0xb7a17e,roughness:0.76});
-  const flameMat=new THREE.MeshBasicMaterial({color:0xffbf66});
+  const candleMat=new THREE.MeshStandardMaterial({color:0x51412e,roughness:0.9});
+  const flameMat=new THREE.MeshBasicMaterial({color:0xffad50});
   [[cx-2.3,altarZ],[cx+2.3,altarZ],[cx,altarZ-1.1]].forEach(([x,z])=>{
     for(let i=-1;i<=1;i++){
       const candle=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.75+Math.abs(i)*0.13,8),candleMat);
@@ -203,8 +218,17 @@ function buildOedonChapelFoyer(room,floorY){
     }
   });
   for(const [x,z] of [[cx-2,altarZ-1],[cx+2,altarZ-1],[cx,altarZ-2]]){
-    const light=new THREE.PointLight(0xffbd78,2.4,13,2);light.position.set(x,floorY+2.2,z);group.add(light);
+    const light=new THREE.PointLight(0xffbd78,0.95,9,2);light.position.set(x,floorY+2.2,z);group.add(light);
   }
+  const puddleMaterial=new THREE.MeshStandardMaterial({color:0x111b26,metalness:0.24,roughness:0.16,transparent:true,opacity:0.58,side:THREE.DoubleSide,depthWrite:false});
+  const puddleGeometry=new THREE.CircleGeometry(1,24);
+  [[cx-7,cz+7,1.7,0.72],[cx+8,cz+5,1.35,0.62],[cx-9,cz-6,1.45,0.7],[cx+8,cz-4,1.1,0.58]].forEach(([x,z,sx,sz])=>{
+    const puddle=new THREE.Mesh(puddleGeometry,puddleMaterial);puddle.rotation.x=-Math.PI/2;puddle.position.set(x,floorY+0.028,z);puddle.scale.set(sx,sz,1);group.add(puddle);
+  });
+  const rubbleGeometry=new THREE.DodecahedronGeometry(0.62,0),rubbleMaterial=new THREE.MeshStandardMaterial({color:0x292a31,roughness:0.98,bumpMap:surfaces.wallBump,bumpScale:0.12});
+  [[cx-15,cz-8,0.9,0.55,1.1],[cx-13,cz-9,0.55,0.42,0.7],[cx+15,cz-8,0.75,0.8,0.65],[cx+14,cz+9,0.95,0.56,1.25],[cx-15,cz+8,0.68,0.6,0.82]].forEach(([x,z,sx,sy,sz])=>{
+    const stoneChip=new THREE.Mesh(rubbleGeometry,rubbleMaterial);stoneChip.position.set(x,floorY+0.24,z);stoneChip.rotation.set(0.18,sx*1.7,0.32);stoneChip.scale.set(sx,sy,sz);stoneChip.castShadow=false;stoneChip.receiveShadow=true;group.add(stoneChip);
+  });
   const chain=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,2.0,6),brass);chain.position.set(cx,floorY+14,cz);group.add(chain);
   const censer=new THREE.Mesh(new THREE.IcosahedronGeometry(0.55,1),darkStone);censer.position.set(cx,floorY+12.7,cz);censer.castShadow=true;group.add(censer);
   const censerRings=new THREE.Mesh(new THREE.TorusGeometry(0.67,0.07,8,18),brass);censerRings.position.copy(censer.position);censerRings.rotation.x=Math.PI/2;group.add(censerRings);
@@ -789,6 +813,7 @@ function buildLocationLandmarks(locationIndex,ox,oz){
   const treeGeo=new THREE.CylinderGeometry(0.35,0.62,5,6),pineGeo=new THREE.ConeGeometry(2.2,6,6);
   const rockGeo=new THREE.DodecahedronGeometry(1.25,0),treeMat=new THREE.MeshStandardMaterial({color:locationIndex===2?0x28362c:0x211c1b,roughness:1});
   const pineMat=new THREE.MeshStandardMaterial({color:0x26362d,roughness:1}),rockMat=new THREE.MeshStandardMaterial({color:locationIndex===3?0x312931:0x4a4643,roughness:0.96});
+  const nearStartingChapel=(x,z,padding)=>locationIndex===0&&x>=ox-padding&&x<=ox+ROOM_WORLD_SIZE+padding&&z>=oz-padding&&z<=oz+ROOM_WORLD_SIZE+padding;
   const addInstances=(geometry,material,items)=>{
     if(!items.length)return;const mesh=new THREE.InstancedMesh(geometry,material,items.length),dummy=new THREE.Object3D();
     items.forEach((o,index)=>{dummy.position.set(o.x,o.y,o.z);dummy.rotation.set(o.rx||0,o.ry||0,o.rz||0);dummy.scale.set(o.sx||1,o.sy||1,o.sz||1);dummy.updateMatrix();mesh.setMatrixAt(index,dummy.matrix);});
@@ -799,7 +824,12 @@ function buildLocationLandmarks(locationIndex,ox,oz){
     const x=ox+8+rng()*(STAGE_WORLD_WIDTH-16),z=oz+8+rng()*(STAGE_WORLD_DEPTH-16);
     if(Math.hypot(x-(ox+12),z-(oz+12))<18)continue;
     const p=rng()<0.5?-1:1;
-    if(locationIndex===0){props.push({x,y:0.45,z,ry:rng()*Math.PI*2,sx:1.6,sy:0.9,sz:0.8}); if(i%2===0) trees.push({x:x+p*2,y:2.4,z:z+p*2,sy:1.2});}
+    if(locationIndex===0){
+      const propRotation=rng()*Math.PI*2;
+      if(!nearStartingChapel(x,z,2))props.push({x,y:0.45,z,ry:propRotation,sx:1.6,sy:0.9,sz:0.8});
+      const treeX=x+p*2,treeZ=z+p*2;
+      if(i%2===0&&!nearStartingChapel(treeX,treeZ,14))trees.push({x:treeX,y:2.4,z:treeZ,sy:1.2});
+    }
     else if(locationIndex===2){rocks.push({x,y:0.6+rng()*0.45,z,ry:rng()*Math.PI,sx:0.8+rng()*1.5,sy:0.65+rng()*0.6,sz:0.8+rng()});trees.push({x:x+p*2,y:2.3,z:z-p*2,sy:0.95+rng()*0.5});}
     else if(locationIndex===3&&i<28){props.push({x,y:0.35,z,ry:rng()*Math.PI*2,sx:1.1,sy:0.8,sz:1.4});}
   }

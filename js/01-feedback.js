@@ -316,7 +316,9 @@ function applyBrightness(){
     scene.fog.color.copy(sky);
     if(gameMode === GameMode.PLAYING) scene.fog.density = currentFogDensity;
   }
-  const gb = Math.max(0.2, gameBrightness);
+  const mood = LOCATION_MOODS[currentLocation] || LOCATION_MOODS[0];
+  const moodLight = gameMode === GameMode.PLAYING ? (mood.brightness ?? 1) : 1;
+  const gb = Math.max(0.2, gameBrightness) * moodLight;
   if(lightingRefs.ambient) lightingRefs.ambient.intensity = 0.27 * gb;
   if(lightingRefs.hemi)    lightingRefs.hemi.intensity    = 0.36 * gb;
   if(lightingRefs.moon)    lightingRefs.moon.intensity    = 0.62 * gb;
