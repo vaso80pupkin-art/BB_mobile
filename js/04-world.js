@@ -708,16 +708,40 @@ function updateHunterFloor(previousZ){
     const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*Math.max(0,Math.min(1,along/stair.run));
     return stairY>stair.lowerY+0.15&&Math.abs(floorY-stairY)<0.2;
   });
-  if(previousY>=FLOOR_LEVELS[1]-1.35&&Math.abs(floorY-FLOOR_LEVELS[0])<0.05&&previousY-floorY>1.35&&!landedOnStair){
-    player.hp=Math.max(0,player.hp-10);
-    player.screenShake=Math.max(player.screenShake,0.2);
-    if(typeof damageFlash==='function') damageFlash();
-    sfx('hit');updateHUD();
-    if(player.hp<=0&&!player.isDead) die();
+  if(previousY>=FLOOR_LEVELS[1]-1.35&&Math.abs(floorY-FLOOR_LEVELS[0])<0.05&&previousY-floorY>1.35&&!landedOnStair&&!stairFallAnimation){
+    stairFallAnimation={startY:previousY,targetY:floorY,elapsed:0,duration:1};
+    player.isAttacking=false;player.isDodging=false;
+    player.currentAttack=null;player.attackBuffer=false;player.dodgeBuffer=false;player.invincible=false;
+    if(typeof cancelActiveAttackCharge==='function') cancelActiveAttackCharge();
+    else player.isCharging=false;
+    if(typeof moveData.cancel==='function') moveData.cancel();
+    else { moveData.active=false;moveData.x=0;moveData.y=0; }
+    player.sprintTime=0;
+    return;
   }
   hunter.position.y=floorY;
   const nextFloor=Math.abs(hunter.position.y-FLOOR_LEVELS[1])<FLOOR_HEIGHT/2?1:0;
   if(nextFloor!==currentFloorIndex){ currentFloorIndex=nextFloor; updateStageLocationLabel(true); }
+}
+
+function updateStairFallAnimation(dt){
+  const fall=stairFallAnimation;
+  if(!fall||!hunter) return false;
+  fall.elapsed=Math.min(fall.duration,fall.elapsed+Math.max(0,dt));
+  const t=fall.duration>0?fall.elapsed/fall.duration:1;
+  const eased=t*t*(3-2*t);
+  hunter.position.y=fall.startY+(fall.targetY-fall.startY)*eased;
+  if(t<1) return true;
+  hunter.position.y=fall.targetY;
+  stairFallAnimation=null;
+  player.hp=Math.max(0,player.hp-10);
+  player.screenShake=Math.max(player.screenShake,0.2);
+  if(typeof damageFlash==='function') damageFlash();
+  sfx('hit');updateHUD();
+  const nextFloor=Math.abs(hunter.position.y-FLOOR_LEVELS[1])<FLOOR_HEIGHT/2?1:0;
+  if(nextFloor!==currentFloorIndex){ currentFloorIndex=nextFloor; updateStageLocationLabel(true); }
+  if(player.hp<=0&&!player.isDead) die();
+  return true;
 }
 
 function updateStageLocationLabel(show=false){

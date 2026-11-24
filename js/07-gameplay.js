@@ -429,7 +429,9 @@ function loop(){
   } else if(player.lockedTarget){
     player.lockedTarget = null;
   }
-  if(moveData.active && !player.isAttacking && !player.isDodging){
+  if(stairFallAnimation){
+    updateStairFallAnimation(dt);
+  } else if(moveData.active && !player.isAttacking && !player.isDodging){
     const previousZ=hunter.position.z;
     const mag = Math.sqrt(moveData.x**2 + moveData.y**2);
     const sprintMult = mag>0.75?1.7:1.0;

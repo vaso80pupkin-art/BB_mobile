@@ -1,3 +1,5 @@
+let cancelActiveAttackCharge = null;
+
 function loadDream(){
   clearWorld();
   gameMode = GameMode.DREAM;
@@ -354,7 +356,7 @@ function setupCameraSwipe(){
   };
 
   const start = (cx, cy, target, pointerId) => {
-    if(gameMode !== GameMode.PLAYING){ lastTapTime=0; return; }
+    if(gameMode !== GameMode.PLAYING || stairFallAnimation){ lastTapTime=0; return; }
     if(isInteractive(target)){ lastTapTime=0; return; }
     if(cameraPointerId !== null){ lastTapTime=0; return; }
     cameraPointerId = pointerId;
@@ -365,6 +367,7 @@ function setupCameraSwipe(){
 
   const move = (cx, cy, pointerId) => {
     if(cameraPointerId !== pointerId) return;
+    if(stairFallAnimation){ cameraPointerId=null;lastTapTime=0;return; }
     const dx = cx - lastX;
     const dy = cy - lastY;
     if(Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
@@ -410,9 +413,17 @@ function setupCameraSwipe(){
 function setupButtons(){
   const atkBtn = $('btnAttack');
   let chargeStart = 0, chargeInterval = null;
+  cancelActiveAttackCharge=()=>{
+    if(chargeInterval){ clearInterval(chargeInterval);chargeInterval=null; }
+    player.isCharging=false;
+    if(atkBtn) atkBtn.classList.remove('charging');
+    const indicator=$('chargeIndicator'),bar=$('chargeBar');
+    if(indicator) indicator.classList.remove('show');
+    if(bar) bar.style.width='0%';
+  };
   const atkDown = (e)=>{
     e.preventDefault();e.stopPropagation();
-    if(gameMode!==GameMode.PLAYING) return;
+    if(gameMode!==GameMode.PLAYING || stairFallAnimation) return;
     initAudio();
     if(player.isAttacking){ player.attackBuffer = true; return; }
     if(player.isDodging){ player.dodgeBuffer = true; return; }
@@ -429,8 +440,8 @@ function setupButtons(){
   };
   const atkUp = (e)=>{
     e.preventDefault();e.stopPropagation();
+    if(chargeInterval){ clearInterval(chargeInterval);chargeInterval=null; }
     if(!player.isCharging) return;
-    clearInterval(chargeInterval);
     const dur = (Date.now()-chargeStart)/1000;
     player.isCharging = false;
     atkBtn.classList.remove('charging');
@@ -448,8 +459,8 @@ function setupButtons(){
   const bind = (id,fn)=>{
     const el = $(id);
     if(!el) return;
-    el.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();if(gameMode===GameMode.PLAYING)fn();},{passive:false});
-    el.addEventListener('mousedown',(e)=>{e.preventDefault();if(gameMode===GameMode.PLAYING)fn();});
+    el.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();if(gameMode===GameMode.PLAYING&&!stairFallAnimation)fn();},{passive:false});
+    el.addEventListener('mousedown',(e)=>{e.preventDefault();if(gameMode===GameMode.PLAYING&&!stairFallAnimation)fn();});
   };
   bind('btnLockOn',toggleLockOn);
   bind('btnGun',performGunshot);
@@ -486,7 +497,7 @@ function setupButtons(){
   dp.addEventListener('mousedown',(e)=>{e.preventDefault();openWeaponMenu();});
 
   document.querySelectorAll('.tool-slot').forEach(slot => {
-    const useTool = () => { if(gameMode !== GameMode.PLAYING) return; useToolItem(slot.dataset.tool); };
+    const useTool = () => { if(gameMode !== GameMode.PLAYING || stairFallAnimation) return; useToolItem(slot.dataset.tool); };
     slot.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); useTool(); }, {passive:false});
     slot.addEventListener('mousedown', (e) => { e.preventDefault(); useTool(); });
   });
@@ -627,15 +638,15 @@ function renderSettingsTab(tab){
     c.innerHTML = `
       <div class="settings-row">
         <div class="sr-label"><b>🌌 ЯРКОСТЬ НЕБА</b><span class="val" id="skyVal">${Math.round(skyBrightness*100)}%</span></div>
-        <input type="range" id="skySlider" min="20" max="200" value="${Math.round(skyBrightness*100)}">
+        <input type="range" id="skySlider" min="20" max="380" value="${Math.round(skyBrightness*100)}">
       </div>
       <div class="settings-row">
         <div class="sr-label"><b>🖥 ЯРКОСТЬ ИГРЫ</b><span class="val" id="gameVal">${Math.round(gameBrightness*100)}%</span></div>
-        <input type="range" id="gameSlider" min="30" max="200" value="${Math.round(gameBrightness*100)}">
+        <input type="range" id="gameSlider" min="30" max="370" value="${Math.round(gameBrightness*100)}">
       </div>
       <div class="settings-row" style="border-left-color:#3a5a3a">
         <div class="sr-label" style="margin-bottom:0"><b>💡 ПОДСКАЗКА</b></div>
-        <div style="color:#8a7858;font-size:11px;line-height:1.5;margin-top:4px">«Небо» управляет фоном, туманом и луной. «Игра» — общим освещением сцены.</div>
+        <div style="color:#8a7858;font-size:11px;line-height:1.5;margin-top:4px">200% — середина шкалы. «Небо» управляет фоном, туманом и луной; «Игра» — общим освещением сцены.</div>
       </div>
       <div class="settings-row">
         <div class="sr-label"><b>🎥 ЧУВСТВИТЕЛЬНОСТЬ КАМЕРЫ</b><span class="val" id="camVal">${Math.round(camSensitivity*100)}%</span></div>
@@ -644,13 +655,7 @@ function renderSettingsTab(tab){
       <div class="settings-row">
         <div class="sr-label"><b>⬇ ИНВЕРСИЯ Y</b><input type="checkbox" id="invertCheck" style="transform:scale(1.4)" ${invertY?'checked':''}></div>
       </div>
-      <div class="settings-row">
-        <div class="sr-label"><b>🧍 ПОВОРОТ МОДЕЛИ ОХОТНИКА</b></div>
-        <button class="menu-btn" id="rotHunterBtn" style="padding:8px 24px;font-size:13px;margin:8px 0 0">↻ ПОВЕРНУТЬ НА 90°</button>
-        <div style="color:#8a7858;font-size:11px;line-height:1.5;margin-top:6px">Если охотник идёт боком или спиной — нажимайте, пока он не встанет лицом по ходу движения.</div>
-      </div>
     `;
-    $('rotHunterBtn').addEventListener('click', () => { rotateHunterModel(); sfx('menu'); });
     $('skySlider').addEventListener('input', e => {
       skyBrightness = e.target.value / 100;
       $('skyVal').textContent = e.target.value + '%';
@@ -732,6 +737,7 @@ function setupFullscreen(){
 }
 
 function useToolItem(tool){
+  if(stairFallAnimation) return;
   if(tool === 'molotov'){
     if(player.tools.molotov <= 0){ notify('НЕТ МОЛОТОВЫХ КОКТЕЙЛЕЙ'); return; }
     player.tools.molotov--; sfx('throw'); spawnMolotov();
@@ -799,7 +805,7 @@ function cancelMoveStickForAction(){
 }
 
 function performAttack(chargeDur=0){
-  if(player.isAttacking || player.stamina < 18) return;
+  if(stairFallAnimation || player.isAttacking || player.stamina < 18) return;
   if(player.weaponDurability <= 0){ notify('ОРУЖИЕ СЛОМАНО!'); return; }
   const running = Math.sqrt(moveData.x**2+moveData.y**2) > 0.75;
   const isCharged = chargeDur >= 1.5;
@@ -984,7 +990,7 @@ function killEnemy(enemy){
   SaveSystem.save();
 }
 function performDodge(){
-  if(player.isDodging||player.stamina<25) return;
+  if(stairFallAnimation||player.isDodging||player.stamina<25) return;
   const moving = moveData.active && (Math.abs(moveData.x)>0.1 || Math.abs(moveData.y)>0.1);
   player.isDodging = true; player.dodgeTime = 0;
   player.stamina -= 25;
@@ -1024,7 +1030,7 @@ function performDodge(){
   updateHUD();
 }
 function performGunshot(){
-  if(player.stamina<12) return;
+  if(stairFallAnimation||player.stamina<12) return;
   if(player.bullets <= 0){ notify('НЕТ ПАТРОНОВ'); return; }
   player.stamina -= 12; player.bullets--; updateHUD();
   startHunterRigAction('shoot',0.3);

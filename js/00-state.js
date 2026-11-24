@@ -7,9 +7,10 @@ let gameMode = GameMode.MENU;
 let sfxVolume = 0.7;
 let musicVolume = 0.35;
 let camSensitivity = 1.0;
-let invertY = false;
-let skyBrightness = 1.0;
-let gameBrightness = 1.0;
+let invertY = true;
+let skyBrightness = 2.0;
+let gameBrightness = 2.0;
+let stairFallAnimation = null;
 
 /* === ИЗМЕНЕНИЕ: Аудио объект для фоновой музыки === */
 let musicAudio = new Audio();
@@ -368,7 +369,7 @@ const SaveSystem = {
           tools: {...player.tools}, unlockedLocations: player.unlockedLocations,
           seenBosses: {...player.seenBosses}, bestKills: player.bestKills, maxCombo: player.maxCombo
         },
-        settings: { sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack },
+        settings: { version: 2, sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack },
         currentLocation, campaignProgress, achievements: unlockedAchievements, bestiary: discoveredBestiary,
         parryCount, perfectDodgeCount, timestamp: Date.now()
       };
@@ -387,13 +388,20 @@ const SaveSystem = {
       player.tools = d.player.tools || {molotov:3, knife:5, firepaper:2};
       player.seenBosses = d.player.seenBosses || {};
       if(d.settings){
-        sfxVolume = d.settings.sfxVolume ?? sfxVolume;
-        musicVolume = d.settings.musicVolume ?? musicVolume;
-        camSensitivity = d.settings.camSensitivity ?? camSensitivity;
-        invertY = d.settings.invertY ?? invertY;
-        skyBrightness = d.settings.skyBrightness ?? skyBrightness;
-        gameBrightness = d.settings.gameBrightness ?? gameBrightness;
-        currentMusicTrack = d.settings.currentMusicTrack ?? 0;
+        const savedSettings=d.settings;
+        const migrateOldDefaults=(savedSettings.version??0)<2;
+        sfxVolume = savedSettings.sfxVolume ?? sfxVolume;
+        musicVolume = savedSettings.musicVolume ?? musicVolume;
+        camSensitivity = savedSettings.camSensitivity ?? camSensitivity;
+        invertY = savedSettings.invertY ?? invertY;
+        skyBrightness = savedSettings.skyBrightness ?? skyBrightness;
+        gameBrightness = savedSettings.gameBrightness ?? gameBrightness;
+        currentMusicTrack = savedSettings.currentMusicTrack ?? 0;
+        if(migrateOldDefaults){
+          if(savedSettings.invertY===false) invertY=true;
+          if(savedSettings.skyBrightness===1) skyBrightness=2.0;
+          if(savedSettings.gameBrightness===1) gameBrightness=2.0;
+        }
       }
       currentLocation = Number.isInteger(d.currentLocation) ? Math.max(0,Math.min(LOCATIONS.length-1,d.currentLocation)) : 0;
       campaignProgress = Object.assign({cityBoss:false,buildingBoss:false,mountainBoss:false,liftActivated:false,castleChainShot:false,brokenSecrets:{}},d.campaignProgress||{});
