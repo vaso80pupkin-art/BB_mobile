@@ -708,8 +708,10 @@ function updateHunterFloor(previousZ){
     const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*Math.max(0,Math.min(1,along/stair.run));
     return stairY>stair.lowerY+0.15&&Math.abs(floorY-stairY)<0.2;
   });
-  if(previousY>=FLOOR_LEVELS[1]-1.35&&Math.abs(floorY-FLOOR_LEVELS[0])<0.05&&previousY-floorY>1.35&&!landedOnStair&&!stairFallAnimation){
-    stairFallAnimation={startY:previousY,targetY:floorY,elapsed:0,duration:1};
+  if(previousY-floorY>1.35&&!stairFallAnimation){
+    const damageOnLanding = previousY>=FLOOR_LEVELS[1]-1.35
+      && Math.abs(floorY-FLOOR_LEVELS[0])<0.05 && !landedOnStair;
+    stairFallAnimation={startY:previousY,targetY:floorY,elapsed:0,duration:1,damageOnLanding};
     player.isAttacking=false;player.isDodging=false;
     player.currentAttack=null;player.attackBuffer=false;player.dodgeBuffer=false;player.invincible=false;
     if(typeof cancelActiveAttackCharge==='function') cancelActiveAttackCharge();
@@ -734,10 +736,12 @@ function updateStairFallAnimation(dt){
   if(t<1) return true;
   hunter.position.y=fall.targetY;
   stairFallAnimation=null;
-  player.hp=Math.max(0,player.hp-10);
-  player.screenShake=Math.max(player.screenShake,0.2);
-  if(typeof damageFlash==='function') damageFlash();
-  sfx('hit');updateHUD();
+  if(fall.damageOnLanding){
+    player.hp=Math.max(0,player.hp-10);
+    player.screenShake=Math.max(player.screenShake,0.2);
+    if(typeof damageFlash==='function') damageFlash();
+    sfx('hit');updateHUD();
+  }
   const nextFloor=Math.abs(hunter.position.y-FLOOR_LEVELS[1])<FLOOR_HEIGHT/2?1:0;
   if(nextFloor!==currentFloorIndex){ currentFloorIndex=nextFloor; updateStageLocationLabel(true); }
   if(player.hp<=0&&!player.isDead) die();
