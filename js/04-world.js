@@ -124,14 +124,37 @@ function makeLancetShape(width,height){
   return shape;
 }
 
+let chapelTextureAssets=null;
+function getChapelTextureAssets(){
+  if(chapelTextureAssets) return chapelTextureAssets;
+  const loader=new THREE.TextureLoader();
+  const load=(file,repeatX=1,repeatY=1,isColor=false)=>{
+    const texture=loader.load(`./assets/chapel/${file}`,undefined,undefined,error=>console.warn('[BB] Не удалось загрузить текстуру часовни:',file,error));
+    texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;
+    texture.repeat.set(repeatX,repeatY);
+    texture.anisotropy=renderer?Math.min(8,renderer.capabilities.getMaxAnisotropy()):1;
+    if(isColor&&THREE.sRGBEncoding!==undefined) texture.encoding=THREE.sRGBEncoding;
+    return texture;
+  };
+  chapelTextureAssets={
+    wall:load('wall-albedo.webp',1,1,true),
+    wallHeight:load('wall-height.webp'),
+    floor:load('floor-albedo.webp',12,12,true),
+    floorHeight:load('floor-height.webp',12,12),
+    glass:load('stained-glass.webp',1,1,true)
+  };
+  return chapelTextureAssets;
+}
+
 function buildOedonChapelFoyer(room,floorY){
   if(!room||!scene) return;
   const group=new THREE.Group(),cx=room.roomX+cellSize*3.5,cz=room.roomZ+cellSize*3.5;
+  const chapelMaps=getChapelTextureAssets();
   const surfaces=createSurfaceTextures();
-  const stone=new THREE.MeshStandardMaterial({color:0x25252c,roughness:0.96,bumpMap:surfaces.wallBump,bumpScale:0.16});
-  const darkStone=new THREE.MeshStandardMaterial({color:0x111116,roughness:0.94,metalness:0.02,bumpMap:surfaces.wallBump,bumpScale:0.1});
+  const stone=new THREE.MeshStandardMaterial({color:0x96979d,map:chapelMaps.wall,roughness:0.96,bumpMap:chapelMaps.wallHeight,bumpScale:0.13});
+  const darkStone=new THREE.MeshStandardMaterial({color:0x5b5c64,map:chapelMaps.wall,roughness:0.94,metalness:0.02,bumpMap:chapelMaps.wallHeight,bumpScale:0.1});
   const brass=new THREE.MeshStandardMaterial({color:0x665035,roughness:0.68,metalness:0.58});
-  const stained=[0x17283a,0x32161d,0x20291e].map(color=>new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.025,roughness:0.58,transparent:true,opacity:0.94,side:THREE.DoubleSide,depthWrite:false}));
+  const stainedGlass=new THREE.MeshBasicMaterial({color:0xffffff,map:chapelMaps.glass,side:THREE.DoubleSide,toneMapped:false});
   const makeBox=(w,h,d,material,x,y,z)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;};
   const makeBeam=(a,b,width,depth,material)=>{
     const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start);
@@ -141,12 +164,21 @@ function buildOedonChapelFoyer(room,floorY){
     mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;
   };
 
-  const floorWash=new THREE.Mesh(new THREE.PlaneGeometry(cellSize*mazeSize,cellSize*mazeSize),new THREE.MeshBasicMaterial({color:0x151923,transparent:true,opacity:0.38,depthWrite:false,side:THREE.DoubleSide,toneMapped:false}));
+  const chapelWall=wallMeshes.find(wall=>wall.userData&&wall.userData.isRoomBatch&&Math.abs(wall.userData.minX-room.roomX)<0.01&&Math.abs(wall.userData.minZ-room.roomZ)<0.01&&Math.abs(wall.userData.floorY-floorY)<0.01);
+  if(chapelWall){
+    chapelWall.material.map=chapelMaps.wall;chapelWall.material.bumpMap=chapelMaps.wallHeight;
+    chapelWall.material.color.setHex(0x999ba3);chapelWall.material.bumpScale=0.13;chapelWall.material.roughness=0.96;chapelWall.material.metalness=0;
+    chapelWall.material.needsUpdate=true;
+  }
+  const floorWash=new THREE.Mesh(new THREE.PlaneGeometry(cellSize*mazeSize,cellSize*mazeSize),new THREE.MeshStandardMaterial({color:0x38414c,map:chapelMaps.floor,bumpMap:chapelMaps.floorHeight,bumpScale:0.05,roughness:0.46,metalness:0.06}));
   floorWash.rotation.x=-Math.PI/2;floorWash.position.set(cx,floorY+0.018,cz);group.add(floorWash);
-  const mosaic=new THREE.Mesh(new THREE.CircleGeometry(5.3,64),new THREE.MeshStandardMaterial({color:0x1c1d24,map:surfaces.floor,bumpMap:surfaces.floorBump,bumpScale:0.1,roughness:0.72,metalness:0.08}));
+  const mosaicGeometry=new THREE.CircleGeometry(5.3,64),mosaicUv=mosaicGeometry.attributes.uv;
+  for(let i=0;i<mosaicUv.count;i++) mosaicUv.setXY(i,0.5+(mosaicUv.getX(i)-0.5)*0.2,0.5+(mosaicUv.getY(i)-0.5)*0.2);
+  mosaicUv.needsUpdate=true;
+  const mosaic=new THREE.Mesh(mosaicGeometry,new THREE.MeshStandardMaterial({color:0x555d68,map:chapelMaps.floor,bumpMap:chapelMaps.floorHeight,bumpScale:0.05,roughness:0.58,metalness:0.04}));
   mosaic.rotation.x=-Math.PI/2;mosaic.position.set(cx,floorY+0.045,cz);group.add(mosaic);
-  for(const [inner,outer,color] of [[4.1,4.28,0x685334],[2.4,2.52,0x57383b],[0.52,0.72,0x756344]]){
-    const ring=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),new THREE.MeshStandardMaterial({color,roughness:0.72,metalness:0.3,side:THREE.DoubleSide}));
+  for(const [inner,outer,color] of [[4.1,4.22,0x514231],[2.4,2.49,0x482f34],[0.52,0.66,0x5b503d]]){
+    const ring=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),new THREE.MeshStandardMaterial({color,roughness:0.88,metalness:0.12,side:THREE.DoubleSide}));
     ring.rotation.x=-Math.PI/2;ring.position.set(cx,floorY+0.065,cz);group.add(ring);
   }
   for(let i=0;i<8;i++){
@@ -156,12 +188,23 @@ function buildOedonChapelFoyer(room,floorY){
 
   const columnXs=[cx-11,cx+11],columnZs=[cz-11,cz+11];
   columnZs.forEach(z=>{
-    const left=[cx-11,floorY+9.7,z],right=[cx+11,floorY+9.7,z],peak=[cx,floorY+11.5,z];
+    const left=[cx-11,floorY+9.25,z],right=[cx+11,floorY+9.25,z],peak=[cx,floorY+10.55,z];
     makeBeam(left,peak,0.52,0.62,stone);makeBeam(peak,right,0.52,0.62,stone);
   });
-  const frontPeak=[cx,floorY+11.5,cz+11],backPeak=[cx,floorY+11.5,cz-11],centerPeak=[cx,floorY+12.25,cz];
+  const frontPeak=[cx,floorY+10.55,cz+11],backPeak=[cx,floorY+10.55,cz-11],centerPeak=[cx,floorY+11.1,cz];
   makeBeam(backPeak,centerPeak,0.42,0.52,stone);makeBeam(centerPeak,frontPeak,0.42,0.52,stone);
-  makeBeam([cx-11,floorY+11.5,cz],centerPeak,0.42,0.52,stone);makeBeam(centerPeak,[cx+11,floorY+11.5,cz],0.42,0.52,stone);
+  makeBeam([cx-11,floorY+10.55,cz],centerPeak,0.42,0.52,stone);makeBeam(centerPeak,[cx+11,floorY+10.55,cz],0.42,0.52,stone);
+  const addPointedRib=(left,peak,right)=>{
+    const apex=new THREE.Vector3(...peak);
+    [left,right].forEach(startValues=>{
+      const start=new THREE.Vector3(...startValues),control=start.clone().lerp(apex,0.62);control.y=apex.y-1.15;
+      const curve=new THREE.QuadraticBezierCurve3(start,control,apex);
+      const rib=new THREE.Mesh(new THREE.TubeGeometry(curve,24,0.2,8,false),stone);
+      rib.castShadow=true;rib.receiveShadow=true;group.add(rib);
+    });
+  };
+  columnZs.forEach(z=>addPointedRib([cx-11,floorY+9.25,z],[cx,floorY+10.75,z],[cx+11,floorY+9.25,z]));
+  columnXs.forEach(x=>addPointedRib([x,floorY+9.25,cz-11],[x,floorY+11.1,cz],[x,floorY+9.25,cz+11]));
   const columnAccentGeometry=new THREE.TorusGeometry(0.72,0.045,7,18);
   columnXs.forEach(x=>columnZs.forEach(z=>{
     for(const [radius,height,y,material] of [[0.92,0.48,0.24,darkStone],[0.68,8.55,4.75,stone],[0.9,0.55,9.3,darkStone],[1.08,0.38,9.76,stone]]){
@@ -173,31 +216,51 @@ function buildOedonChapelFoyer(room,floorY){
     }
     wallColliders.push({minX:x-0.68,maxX:x+0.68,minZ:z-0.68,maxZ:z+0.68,minY:floorY,maxY:floorY+9.5,cx:x,cy:floorY+4.75,cz:z,w:1.36,h:9.5,d:1.36,floorY});
   }));
-
-  const windowZ=room.roomZ+cellSize+0.43;
-  [room.roomX+cellSize*2,room.roomX+cellSize*3.5,room.roomX+cellSize*5].forEach((x,index)=>{
-    const window=new THREE.Group();
-    const frame=new THREE.Mesh(new THREE.ExtrudeGeometry(makeLancetShape(3.6,7.6),{depth:0.2,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:0.08,bevelThickness:0.06}),darkStone);
-    frame.position.z=-0.11;window.add(frame);
-    const glass=new THREE.Mesh(new THREE.ShapeGeometry(makeLancetShape(3.05,7.05)),stained[index%stained.length]);
-    glass.position.set(0,0,0.12);window.add(glass);
-    const leadMat=new THREE.MeshStandardMaterial({color:0x20232c,roughness:0.62,metalness:0.28});
-    const mullion=new THREE.Mesh(new THREE.BoxGeometry(0.11,6.65,0.08),leadMat);mullion.position.set(0,3.2,0.17);window.add(mullion);
-    for(const xSide of [-0.72,0.72]){const bar=new THREE.Mesh(new THREE.BoxGeometry(0.07,5.9,0.08),leadMat);bar.position.set(xSide,3.0,0.17);window.add(bar);}
-    for(const y of [2.2,4.35,5.75]){const bar=new THREE.Mesh(new THREE.BoxGeometry(2.65,0.09,0.08),leadMat);bar.position.set(0,y,0.17);window.add(bar);}
-    const rose=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.045,6,18),brass);rose.position.set(0,6.15,0.18);window.add(rose);
-    for(let spoke=0;spoke<4;spoke++){
-      const ray=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.68,0.06),leadMat);ray.position.set(0,6.15,0.19);ray.rotation.z=spoke*Math.PI/4;window.add(ray);
+  const fluteGeometry=new THREE.CylinderGeometry(0.045,0.045,8.15,6);
+  const columnFlutes=new THREE.InstancedMesh(fluteGeometry,darkStone,columnXs.length*columnZs.length*8),fluteTransform=new THREE.Object3D();
+  let fluteIndex=0;
+  columnXs.forEach(x=>columnZs.forEach(z=>{
+    for(let i=0;i<8;i++){
+      const angle=i/8*Math.PI*2;
+      fluteTransform.position.set(x+Math.cos(angle)*0.64,floorY+4.75,z+Math.sin(angle)*0.64);
+      fluteTransform.updateMatrix();columnFlutes.setMatrixAt(fluteIndex++,fluteTransform.matrix);
     }
-    window.position.set(x,floorY+1.65,windowZ);group.add(window);
+  }));
+  columnFlutes.instanceMatrix.needsUpdate=true;columnFlutes.castShadow=true;columnFlutes.receiveShadow=true;group.add(columnFlutes);
+
+  const windowZ=room.roomZ+cellSize+0.88;
+  [room.roomX+cellSize*2,room.roomX+cellSize*3.5,room.roomX+cellSize*5].forEach(x=>{
+    const window=new THREE.Group();
+    const frame=new THREE.Mesh(new THREE.ExtrudeGeometry(makeLancetShape(4.2,7.25),{depth:0.24,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:0.09,bevelThickness:0.07}),stone);
+    frame.position.z=0.02;window.add(frame);
+    const archPoints=[[-2.55,0],[-2.55,4.3],[-2.1,5.75],[-1.35,6.85],[0,7.5],[1.35,6.85],[2.1,5.75],[2.55,4.3],[2.55,0]].map(([px,py])=>new THREE.Vector3(px,py,0.3));
+    const archCurve=new THREE.CatmullRomCurve3(archPoints,false,'centripetal',0.45);
+    const archRib=new THREE.Mesh(new THREE.TubeGeometry(archCurve,48,0.15,8,false),new THREE.MeshStandardMaterial({color:0x42414a,roughness:0.96,metalness:0.01}));
+    archRib.castShadow=true;archRib.receiveShadow=true;window.add(archRib);
+    const glassWidth=3.55,glassHeight=6.65;
+    const glassGeometry=new THREE.ShapeGeometry(makeLancetShape(glassWidth,glassHeight)),glassUv=glassGeometry.attributes.uv,glassPositions=glassGeometry.attributes.position;
+    for(let i=0;i<glassUv.count;i++) glassUv.setXY(i,(glassPositions.getX(i)+glassWidth/2)/glassWidth,glassPositions.getY(i)/glassHeight);
+    glassUv.needsUpdate=true;
+    const glass=new THREE.Mesh(glassGeometry,stainedGlass);
+    glass.position.set(0,0,0.34);window.add(glass);
+    const leadMat=new THREE.MeshStandardMaterial({color:0x20232c,roughness:0.62,metalness:0.18});
+    const mullion=new THREE.Mesh(new THREE.BoxGeometry(0.085,6.2,0.055),leadMat);mullion.position.set(0,3.05,0.42);window.add(mullion);
+    for(const xSide of [-0.92,0.92]){const bar=new THREE.Mesh(new THREE.BoxGeometry(0.055,5.6,0.05),leadMat);bar.position.set(xSide,2.85,0.42);window.add(bar);}
+    for(const y of [1.8,3.75,5.25]){const bar=new THREE.Mesh(new THREE.BoxGeometry(3.1,0.07,0.05),leadMat);bar.position.set(0,y,0.42);window.add(bar);}
+    const rose=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.035,6,20),brass);rose.position.set(0,4.75,0.43);window.add(rose);
+    for(let spoke=0;spoke<4;spoke++){
+      const ray=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.76,0.045),leadMat);ray.position.set(0,4.75,0.44);ray.rotation.z=spoke*Math.PI/4;window.add(ray);
+    }
+    const glassGlow=new THREE.PointLight(0x779bd0,0.42,10,2);glassGlow.position.set(0,4.1,0.22);window.add(glassGlow);
+    window.position.set(x,floorY+1.9,windowZ);group.add(window);
   });
 
   const altarZ=cz-8.5;
   makeBox(5.0,0.46,2.8,darkStone,cx,floorY+0.23,altarZ);
   makeBox(4.2,0.72,2.0,stone,cx,floorY+0.82,altarZ);
   makeBox(2.7,0.22,1.5,brass,cx,floorY+1.29,altarZ);
-  const drape=new THREE.Mesh(new THREE.ConeGeometry(1.1,2.2,5),new THREE.MeshStandardMaterial({color:0x1c0d12,roughness:0.98,bumpMap:surfaces.wallBump,bumpScale:0.05,side:THREE.DoubleSide}));
-  drape.position.set(cx,floorY+2.45,altarZ-0.1);drape.rotation.y=Math.PI/5;drape.castShadow=true;group.add(drape);
+  const drape=new THREE.Mesh(new THREE.ConeGeometry(1.35,2.55,4),new THREE.MeshStandardMaterial({color:0x282a30,roughness:0.96,bumpMap:chapelMaps.wallHeight,bumpScale:0.11,side:THREE.DoubleSide}));
+  drape.position.set(cx,floorY+2.7,altarZ-0.1);drape.rotation.y=Math.PI/4;drape.castShadow=true;group.add(drape);
 
   const urnPoints=[new THREE.Vector2(0,0),new THREE.Vector2(0.36,0),new THREE.Vector2(0.52,0.24),new THREE.Vector2(0.45,0.48),new THREE.Vector2(0.68,0.82),new THREE.Vector2(0.62,1.15),new THREE.Vector2(0.38,1.38),new THREE.Vector2(0.4,1.52),new THREE.Vector2(0.5,1.58),new THREE.Vector2(0,1.58)];
   const urnGeo=new THREE.LatheGeometry(urnPoints,16);
