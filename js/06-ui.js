@@ -158,11 +158,15 @@ function updateWeaponUI(){
   const dmgBonus = lvl * 8;
   const nextBonus = (lvl+1) * 8;
   const maxed = lvl >= WEAPON_MAX_LEVEL;
+  const repairCost = weaponRepairCost();
+  const damaged = player.weaponDurability < player.maxWeaponDurability;
+  const canRepair = damaged && player.echoes >= repairCost;
   const shardCost = maxed ? 0 : WEAPON_SHARD_COSTS[lvl];
   const can = !maxed && player.bloodShards >= shardCost;
   let html = `
     <div class="stat-row"><span class="label">УРОВЕНЬ ОРУЖИЯ</span><span class="value">+${lvl}</span></div>
     <div class="stat-row"><span class="label">БОНУС УРОНА</span><span class="value">+${dmgBonus}%</span></div>
+    <div class="stat-row"><span class="label">ПРОЧНОСТЬ</span><span class="value" style="color:${damaged?'#dd6666':'#55dd77'}">${Math.round(player.weaponDurability)}%</span></div>
     <div class="stat-row"><span class="label">КРОВАВЫЕ ОСКОЛКИ</span><span class="value" style="color:#dd88aa">${player.bloodShards}</span></div>
   `;
   if(maxed){
@@ -173,10 +177,15 @@ function updateWeaponUI(){
       <div class="stat-row cost-row"><span class="label">➡ БОНУС ПОСЛЕ</span><span class="value">+${nextBonus}% <span style="color:#666">(+8%)</span></span></div>
     `;
   }
+  html += damaged
+    ? `<div class="stat-row cost-row"><span class="label">⚒ РЕМОНТ</span><span class="value" style="color:${canRepair?'#55dd77':'#dd5555'}">${repairCost} отголосков</span></div>`
+    : `<div class="stat-row cost-row"><span class="label">⚒ СОСТОЯНИЕ</span><span class="value" style="color:#55dd77">ПОЛНАЯ ПРОЧНОСТЬ</span></div>`;
   $('weaponStats').innerHTML = html;
   $('btnUpgradeWeapon').disabled = !can;
+  $('btnRepairWeapon').disabled = !canRepair;
   if(maxed) $('btnUpgradeWeapon').textContent = '⭐ МАКС. УРОВЕНЬ';
   else $('btnUpgradeWeapon').textContent = `⚒ УЛУЧШИТЬ (+${shardCost} 💎)`;
+  $('btnRepairWeapon').textContent = damaged ? `⚒ ПОЧИНИТЬ (${repairCost} 💰)` : '✓ ПРОЧНОСТЬ ПОЛНАЯ';
 }
 function upgradeWeapon(){
   if(player.weaponLevel >= WEAPON_MAX_LEVEL){ notify('МАКСИМАЛЬНЫЙ УРОВЕНЬ'); return; }
@@ -187,6 +196,19 @@ function upgradeWeapon(){
   sfx('weaponup');
   notify('ОРУЖИЕ +'+player.weaponLevel);
   if(player.weaponLevel >= WEAPON_MAX_LEVEL) unlockAchievement('max_weapon');
+  updateWeaponUI();
+  updateHUD();
+  SaveSystem.save();
+}
+function weaponRepairCost(){ return 100 + player.weaponLevel * 50; }
+function repairWeapon(){
+  if(player.weaponDurability >= player.maxWeaponDurability){ notify('ПРОЧНОСТЬ ПОЛНАЯ'); return; }
+  const cost = weaponRepairCost();
+  if(player.echoes < cost){ notify('НУЖНО '+cost+' ОТГОЛОСКОВ'); return; }
+  player.echoes -= cost;
+  player.weaponDurability = player.maxWeaponDurability;
+  sfx('weaponup');
+  notify('ОРУЖИЕ ПОЛНОСТЬЮ ПОЧИНЕНО');
   updateWeaponUI();
   updateHUD();
   SaveSystem.save();
@@ -484,6 +506,7 @@ function setupButtons(){
   $('btnOpenWeapon').addEventListener('click',openWeaponMenu);
   $('btnCloseWeapon').addEventListener('click',closeWeaponMenu);
   $('btnUpgradeWeapon').addEventListener('click',upgradeWeapon);
+  $('btnRepairWeapon').addEventListener('click',repairWeapon);
   $('btnOpenGems').addEventListener('click',openGemMenu);
   $('btnCloseGems').addEventListener('click',closeGemMenu);
   $('btnOpenTeleport').addEventListener('click',openTeleportMenu);
@@ -806,7 +829,7 @@ function cancelMoveStickForAction(){
 
 function performAttack(chargeDur=0){
   if(stairFallAnimation || player.isAttacking || player.stamina < 18) return;
-  if(player.weaponDurability <= 0){ notify('ОРУЖИЕ СЛОМАНО!'); return; }
+  if(player.weaponDurability <= 0){ notify('ОРУЖИЕ СЛОМАНО — ПОЧИНИТЕ В МАСТЕРСКОЙ'); return; }
   const running = Math.sqrt(moveData.x**2+moveData.y**2) > 0.75;
   const isCharged = chargeDur >= 1.5;
   const isHeavy = chargeDur > 0.7 || isCharged;
