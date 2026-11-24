@@ -1047,7 +1047,6 @@ function performGunshot(){
   const bltBonus = player.stats.blt*0.8;
   enemies.forEach(enemy=>{
     if(Math.abs(enemy.mesh.position.y-hunter.position.y)>FLOOR_HEIGHT*0.4) return;
-    if(!enemy.canParry) return;
     const dx = enemy.mesh.position.x - hunter.position.x;
     const dz = enemy.mesh.position.z - hunter.position.z;
     const d = Math.sqrt(dx*dx+dz*dz);
@@ -1058,20 +1057,26 @@ function performGunshot(){
       while(diff<-Math.PI) diff += Math.PI*2;
       if(Math.abs(diff)<Math.PI/4){
         const timeSinceAttackStart = gameTime - enemy.lastAttackStartTime;
-        const isParryWindow = enemy.state === 'attack' && timeSinceAttackStart < enemy.attackWindup;
+        const isParryWindow = enemy.canParry && enemy.state === 'attack'
+          && timeSinceAttackStart >= 0 && timeSinceAttackStart < enemy.attackWindup;
         if(isParryWindow){
           enemy.stunned = 3.5;
+          enemy._dealt = false;
+          enemy.state = 'chase';
+          enemy.stateTime = 0;
+          enemy.lastAttackStartTime = -Infinity;
+          enemy.lastAttack = gameTime;
           sfx('parry');
           notify('PARRY! VISCERAL ATTACK READY!');
           spawnDmg(enemy.mesh.position.clone().setY(enemy.mesh.position.y+(enemy.type==='boss'?4:1.5)), 0, 'crit');
           spawnParryIndicator(enemy);
           parryCount++;
           if(parryCount >= 10) unlockAchievement('parry_king');
+          SaveSystem.save();
           return;
         }
         const dmg = 16+bltBonus+Math.random()*8;
         enemy.hp -= dmg;
-        enemy.stunned = 2.5;
         spawnDmg(enemy.mesh.position.clone().setY(enemy.mesh.position.y+(enemy.type==='boss'?4:1.5)),dmg,'normal');
         if(!enemy.detected){
           enemy.detected = true;
