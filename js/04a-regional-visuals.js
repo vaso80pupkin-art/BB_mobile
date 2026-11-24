@@ -1,8 +1,8 @@
 const LOCATION_VISUAL_PALETTES = [
-  { wall:0xffffff, floor:0xffffff, ceiling:0x77727b },
-  { wall:0xa69a89, floor:0xa99e8e, ceiling:0x77716b },
-  { wall:0x8a9ea2, floor:0x89999d, ceiling:0x71828a },
-  { wall:0x92839a, floor:0x8d8192, ceiling:0x6c6076 }
+  { wall:0xa6abb5, floor:0x59616d, ceiling:0x41414a },
+  { wall:0x82766b, floor:0x57504a, ceiling:0x38332f },
+  { wall:0x6f8993, floor:0x52656d, ceiling:0x34464e },
+  { wall:0x796b82, floor:0x51485f, ceiling:0x332c40 }
 ];
 
 function getLocationVisualPalette(locationIndex=currentLocation){
@@ -44,7 +44,8 @@ function addArchedWallDetails(group,rooms,options){
   const width=options.width,height=options.height,baseY=options.baseY;
   const panelGeometry=new THREE.ShapeGeometry(makeLancetShape(width,height));
   const panelMaterial=new THREE.MeshStandardMaterial({
-    color:options.panelColor,emissive:options.emissive||0x000000,emissiveIntensity:options.emissiveIntensity||0,
+    color:options.panelMap?0xffffff:options.panelColor,map:options.panelMap||null,
+    emissive:options.emissive||0x000000,emissiveIntensity:options.emissiveIntensity||0,
     roughness:0.94,side:THREE.DoubleSide
   });
   const panels=new THREE.InstancedMesh(panelGeometry,panelMaterial,faces.length),dummy=new THREE.Object3D();
@@ -146,8 +147,18 @@ function buildYharnamStreetVisuals(floorRooms){
 
 function buildCathedralInteriorVisuals(floorRooms){
   const group=new THREE.Group(),rooms=floorRooms.flat();
-  addArchedWallDetails(group,rooms,{seed:0xca7ed2,maxPanels:10,width:1.55,height:2.9,baseY:3.0,panelColor:0x060403,emissive:0x040201,emissiveIntensity:0.04,frameColor:0x766856,pilasters:true,skipStartingChapel:true});
-  const faces=collectRegionalWallFaces(rooms,0x6ab1e5,true).slice(0,7);
+  const entrance=rooms.find(room=>room.floorIndex===0&&room.roomIndex===0);
+  const entranceMaps=entrance?getChapelTextureAssets():null;
+  if(entrance){
+    const entryFloor=new THREE.Mesh(new THREE.PlaneGeometry(cellSize*mazeSize,cellSize*mazeSize),new THREE.MeshStandardMaterial({color:0x6b7480,map:entranceMaps.floor,bumpMap:entranceMaps.floor,bumpScale:0.035,roughness:0.4,metalness:0.08}));
+    entryFloor.rotation.x=-Math.PI/2;entryFloor.position.set(entrance.roomX+cellSize*3.5,entrance.floorY+0.035,entrance.roomZ+cellSize*3.5);group.add(entryFloor);
+  }
+  const entranceArch={seed:0xca7ed2,maxPanels:5,width:2.2,height:4.1,baseY:2.25,panelColor:0x12131b,panelMap:entranceMaps&&entranceMaps.glass,emissive:0x11182a,emissiveIntensity:0.18,frameColor:0xb49a70,pilasters:true};
+  if(entrance)addArchedWallDetails(group,[entrance],entranceArch);
+  const otherRooms=rooms.filter(room=>room!==entrance);
+  addArchedWallDetails(group,otherRooms,{...entranceArch,panelMap:null,seed:0x72ca7e,maxPanels:8,width:1.8,height:3.3,baseY:2.8,skipStartingChapel:true});
+  const entranceFaces=entrance?collectRegionalWallFaces([entrance],0x6ab1e5).slice(0,3):[];
+  const faces=[...entranceFaces,...collectRegionalWallFaces(otherRooms,0x6ab1e5,true).slice(0,4)];
   if(faces.length){
     const wood=new THREE.MeshStandardMaterial({color:0x5a4635,roughness:0.94});
     const seatGeo=new THREE.BoxGeometry(1.75,0.16,0.52),legGeo=new THREE.BoxGeometry(0.14,0.46,0.15),backGeo=new THREE.BoxGeometry(1.75,0.46,0.12);
@@ -168,16 +179,22 @@ function buildCathedralInteriorVisuals(floorRooms){
 
 function buildMountainVisualAccents(ox,oz){
   const group=new THREE.Group(),route=getMountainRouteLayout(ox,oz),random=seededRandom(0x6f2057);
+  const entryX=ox+cellSize*3.5,entryZ=oz+cellSize*3.5;
   const capGeometry=new THREE.SphereGeometry(1,10,6,0,Math.PI*2,0,Math.PI/2);
   const capMaterial=new THREE.MeshStandardMaterial({color:0x8b9b9d,roughness:0.92});
-  const boulderCaps=new THREE.InstancedMesh(capGeometry,capMaterial,8),dummy=new THREE.Object3D();
-  for(let i=0;i<8;i++){
-    const x=route.valleyX-11+(i%4)*7,z=route.valleyZ-5+Math.floor(i/4)*9;
-    dummy.position.set(x,1.07,z);dummy.rotation.set(0,random()*Math.PI*2,0);dummy.scale.set(1.45+0.2*(i%3),0.24,1.12);dummy.updateMatrix();boulderCaps.setMatrixAt(i,dummy.matrix);
+  const boulderCaps=new THREE.InstancedMesh(capGeometry,capMaterial,12),dummy=new THREE.Object3D();
+  for(let i=0;i<12;i++){
+    const entryOffsets=[[-11,-8],[11,-8],[-11,9],[11,9]];
+    const x=i<4?entryX+entryOffsets[i][0]:route.valleyX-11+((i-4)%4)*7;
+    const z=i<4?entryZ+entryOffsets[i][1]:route.valleyZ-5+Math.floor((i-4)/4)*9;
+    dummy.position.set(x,i<4?0.08:1.07,z);dummy.rotation.set(0,random()*Math.PI*2,0);
+    dummy.scale.set(i<4?2.1:1.45+0.2*(i%3),i<4?0.52:0.24,i<4?1.7:1.12);dummy.updateMatrix();boulderCaps.setMatrixAt(i,dummy.matrix);
   }
   boulderCaps.instanceMatrix.needsUpdate=true;boulderCaps.castShadow=false;boulderCaps.receiveShadow=true;group.add(boulderCaps);
 
   const patches=[
+    {x:entryX-8,z:entryZ-7,y:0.025},{x:entryX+8,z:entryZ-6,y:0.025},
+    {x:entryX-9,z:entryZ+7,y:0.025},{x:entryX+8,z:entryZ+8,y:0.025},
     {x:route.valleyX-6,z:route.valleyZ-8,y:0.025},{x:route.valleyX+5,z:route.valleyZ+8,y:0.025},
     {x:route.valleyX+15,z:route.valleyZ-4,y:0.025},{x:route.valleyX-15,z:route.valleyZ+5,y:0.025},
     {x:-38,z:27,y:-7.94},{x:-25,z:34,y:-7.94},
@@ -213,8 +230,11 @@ function appendCastleWeb(positions,face,width,height){
 
 function buildNightmareCastleVisuals(floorRooms){
   const group=new THREE.Group(),rooms=floorRooms.flat();
-  const faces=collectRegionalWallFaces(rooms,0x4d3e51).slice(0,12),webPositions=[];
-  faces.forEach(face=>appendCastleWeb(webPositions,face,2.25,2.25));
+  const entrance=rooms.find(room=>room.floorIndex===0&&room.roomIndex===0);
+  const entranceFaces=entrance?collectRegionalWallFaces([entrance],0x4d3e51).slice(0,4):[];
+  const otherFaces=collectRegionalWallFaces(rooms.filter(room=>room!==entrance),0x4d3e51).slice(0,8),webPositions=[];
+  entranceFaces.forEach(face=>appendCastleWeb(webPositions,face,4.4,5.3));
+  otherFaces.forEach(face=>appendCastleWeb(webPositions,face,2.25,2.25));
   if(webPositions.length){
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(webPositions,3));geometry.computeBoundingSphere();
     group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:0xb7b0c6,transparent:true,opacity:0.56,depthWrite:false})));

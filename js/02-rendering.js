@@ -14,7 +14,7 @@ function initScene(){
   const mobileQuality = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth,innerHeight) < 600;
   renderer = new THREE.WebGLRenderer({antialias:!mobileQuality, powerPreference:'high-performance'});
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobileQuality ? 1.25 : 1.75));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobileQuality ? 1.0 : 1.75));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -30,7 +30,7 @@ function initScene(){
   lightingRefs.moon = new THREE.DirectionalLight(0x7088bb, 0.55);
   lightingRefs.moon.position.set(-20, 40, -50);
   lightingRefs.moon.castShadow = true;
-  lightingRefs.moon.shadow.mapSize.set(mobileQuality ? 1024 : 2048, mobileQuality ? 1024 : 2048);
+  lightingRefs.moon.shadow.mapSize.set(mobileQuality ? 768 : 2048, mobileQuality ? 768 : 2048);
   lightingRefs.moon.shadow.camera.left = -170; lightingRefs.moon.shadow.camera.right = 170;
   lightingRefs.moon.shadow.camera.top = 105; lightingRefs.moon.shadow.camera.bottom = -105;
   lightingRefs.moon.shadow.bias = -0.0005;

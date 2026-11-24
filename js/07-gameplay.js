@@ -328,6 +328,7 @@ function loop(){
   requestAnimationFrame(loop);
   const rawTime = Date.now()*0.001;
   if(!renderer || !scene || !camera) return;
+  updateAltarFire(rawTime);
   if(gameMode!==GameMode.PLAYING) updateLockOnButton();
 
   if(gameMode === GameMode.MENU){

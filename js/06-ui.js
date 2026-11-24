@@ -535,6 +535,13 @@ function setupButtons(){
   });
 
   $('settingsBtn').addEventListener('click', openSettingsMenu);
+  $('btnAboutProject').addEventListener('click', () => {
+    openSettingsMenu();
+    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+    const aboutTab=document.querySelector('.settings-tab[data-stab="about"]');
+    if(aboutTab) aboutTab.classList.add('active');
+    renderSettingsTab('about');
+  });
   $('btnCloseSettings').addEventListener('click', closeSettingsMenu);
   document.querySelectorAll('.settings-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -700,6 +707,14 @@ function renderSettingsTab(tab){
         <h3>Bloodborne: Hunter's Nightmare</h3>
         <p>Мрачная охота в проклятом городе Ярнам. Тёмные венецианские коридоры, готические аркады и бесконечный дождь. Ты — Охотник, и ночь только начинается.</p>
         <p>Испытай безумный бой, парирования и кровавую ярость Зверя внутри. Найди своё место в Кошмаре Охотника.</p>
+        <h3>ЭТАПЫ ПЕРЕРАБОТКИ МИРА</h3>
+        <ol class="build-stages">
+          <li><b>Часовня Идон</b> — готические своды, фактурный камень, холодные витражи, мокрый пол и живое пламя на алтаре.</li>
+          <li><b>Улицы Ярнама</b> — дождливые переулки, туман, отражающие лужи и тёплые фонари.</li>
+          <li><b>Горный перевал</b> — ледяная дымка, скальные выступы и опасные открытые тропы.</li>
+          <li><b>Паучий замок</b> — холодный лунный свет, готические детали, паутина и коконы.</li>
+        </ol>
+        <p><b>Автор:</b> Кравчук Андрей<br><b>Инструменты разработки:</b> Manus, Codex</p>
         <video class="about-showcase" controls playsinline preload="none" aria-label="Видео демонстрации 3D-модели">
           <source src="tripo-showcase-956e621b-78f7-4f2f-84a3-b496f8737543.mp4" type="video/mp4">
         </video>

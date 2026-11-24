@@ -342,6 +342,7 @@ function setupMenuScene(){
 function loadLocation(idx){
   idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
   if(!canEnterLocation(idx)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return false;}
+  altarFireRefs.length=0;altarFireLight=null;
   clearWorld();
   gameMode = GameMode.PLAYING;
   currentLocation = idx;
@@ -398,8 +399,8 @@ function loadLocation(idx){
   rebuildWallCollisionGrid();
   spawnDustMotes(60);
   const startRoom=floorRooms[0][0];
-  const spawnX=idx===0?startRoom.roomX+cellSize*3.5:ox+cellSize*1.5;
-  const spawnZ=idx===0?startRoom.roomZ+cellSize*3.5:oz+cellSize*1.5;
+  const spawnX=startRoom.roomX+cellSize*3.5;
+  const spawnZ=startRoom.roomZ+cellSize*3.5;
   spawnLantern(spawnX+2.4,spawnZ+1.0,true,FLOOR_LEVELS[0]);
   player.respawnPoint={x:spawnX,z:spawnZ,y:FLOOR_LEVELS[0],loc:idx,floor:0};
   if(hunter){

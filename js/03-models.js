@@ -993,7 +993,7 @@ function addCobblePatch(width,depth,cx,cz,y,ceiling=false,segmentSpacing=3){
   geo.computeVertexNormals();
   const mat=new THREE.MeshStandardMaterial({
     color:ceiling?palette.ceiling:palette.floor,map:surfaces.floor,bumpMap:surfaces.floorBump,
-    bumpScale:ceiling?0.055:0.14,roughness:ceiling?0.9:0.62,metalness:0.025,
+    bumpScale:ceiling?0.055:0.14,roughness:ceiling?0.9:0.46,metalness:ceiling?0.025:0.07,
     side:ceiling?THREE.DoubleSide:THREE.FrontSide
   });
   const floor=new THREE.Mesh(geo,mat);
