@@ -354,9 +354,9 @@ function setupCameraSwipe(){
   };
 
   const start = (cx, cy, target, pointerId) => {
-    if(gameMode !== GameMode.PLAYING) return;
-    if(isInteractive(target)) return;
-    if(cameraPointerId !== null) return;
+    if(gameMode !== GameMode.PLAYING){ lastTapTime=0; return; }
+    if(isInteractive(target)){ lastTapTime=0; return; }
+    if(cameraPointerId !== null){ lastTapTime=0; return; }
     cameraPointerId = pointerId;
     moved = false;
     lastX = cx;
@@ -381,15 +381,15 @@ function setupCameraSwipe(){
     if(!moved){
       const now = Date.now();
       const tapDist = Math.hypot(cx - lastTapX, cy - lastTapY);
-      if(now - lastTapTime < 320 && tapDist < 50){
-        toggleLockOn();
+      if(now - lastTapTime < 300 && tapDist < 50){
+        performDodge();
         lastTapTime = 0;
       } else {
         lastTapTime = now;
         lastTapX = cx;
         lastTapY = cy;
       }
-    }
+    } else lastTapTime=0;
   };
 
   document.addEventListener('pointerdown',e=>{
@@ -403,7 +403,7 @@ function setupCameraSwipe(){
   },{passive:false});
   document.addEventListener('pointerup',e=>end(e.clientX,e.clientY,e.pointerId));
   document.addEventListener('pointercancel',e=>{
-    if(cameraPointerId===e.pointerId) cameraPointerId=null;
+    if(cameraPointerId===e.pointerId){ cameraPointerId=null; lastTapTime=0; }
   });
 }
 
@@ -451,7 +451,7 @@ function setupButtons(){
     el.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();if(gameMode===GameMode.PLAYING)fn();},{passive:false});
     el.addEventListener('mousedown',(e)=>{e.preventDefault();if(gameMode===GameMode.PLAYING)fn();});
   };
-  bind('btnDodge',performDodge);
+  bind('btnLockOn',toggleLockOn);
   bind('btnGun',performGunshot);
   bind('btnTransform',performTransform);
   bind('btnVial',useVial);
@@ -1108,18 +1108,43 @@ function useVial(){
   sfx('vial'); notify('ЗЕЛЬЕ ИСПОЛЬЗОВАНО');
   spawnDmg(hunter.position.clone().setY(hunter.position.y+2),45,'heal');
 }
+function getNearestLockOnTarget(){
+  if(!hunter) return null;
+  let nearest=null, nearD=25;
+  enemies.forEach(e=>{
+    if(!e||!e.mesh||Math.abs(e.mesh.position.y-hunter.position.y)>FLOOR_HEIGHT*0.4) return;
+    const d=hunter.position.distanceTo(e.mesh.position);
+    if(d<nearD){ nearD=d; nearest=e; }
+  });
+  return nearest;
+}
+function updateLockOnButton(){
+  const button=$('btnLockOn');
+  if(!button) return;
+  if(gameMode!==GameMode.PLAYING||!hunter){
+    button.classList.remove('is-visible','locked');
+    button.setAttribute('aria-pressed','false');
+    return;
+  }
+  const target=player.lockedTarget;
+  const targetInRange=!!(target&&target.mesh&&enemies.includes(target)&&
+    Math.abs(target.mesh.position.y-hunter.position.y)<=FLOOR_HEIGHT*0.4&&
+    hunter.position.distanceTo(target.mesh.position)<25);
+  if(target&&!targetInRange) player.lockedTarget=null;
+  const hasTarget=!!getNearestLockOnTarget();
+  const locked=!!player.lockedTarget;
+  button.classList.toggle('is-visible',hasTarget);
+  button.classList.toggle('locked',locked);
+  button.setAttribute('aria-pressed',locked?'true':'false');
+}
 function toggleLockOn(){
   if(player.lockedTarget){
     player.lockedTarget = null;
     notify('🎯 ЗАХВАТ СНЯТ');
+    updateLockOnButton();
     return;
   }
-  let nearest = null, nearD = 25;
-  enemies.forEach(e=>{
-    if(Math.abs(e.mesh.position.y-hunter.position.y)>FLOOR_HEIGHT*0.4) return;
-    const d = hunter.position.distanceTo(e.mesh.position);
-    if(d<nearD){ nearD = d; nearest = e; }
-  });
+  const nearest=getNearestLockOnTarget();
   if(nearest){
     player.lockedTarget = nearest;
     notify('🎯 ЗАХВАТ ЦЕЛИ');
@@ -1127,6 +1152,7 @@ function toggleLockOn(){
   } else {
     notify('НЕТ ЦЕЛЕЙ ПОБЛИЗОСТИ');
   }
+  updateLockOnButton();
 }
 function checkLanternProximity(){
   nearbyLantern = null;

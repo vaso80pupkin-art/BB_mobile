@@ -328,6 +328,7 @@ function loop(){
   requestAnimationFrame(loop);
   const rawTime = Date.now()*0.001;
   if(!renderer || !scene || !camera) return;
+  if(gameMode!==GameMode.PLAYING) updateLockOnButton();
 
   if(gameMode === GameMode.MENU){
     menuOrbitTime += 0.003;
@@ -545,6 +546,7 @@ function loop(){
   player.gunRecoil=Math.max(0,player.gunRecoil-dt);
   updateWallTransparency();
   updateEnemies(dt,rawTime);
+  updateLockOnButton();
   updateAmbientCreatures(rawTime);
   updateStageMechanics(dt);
   checkLanternProximity();
