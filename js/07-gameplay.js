@@ -430,6 +430,7 @@ function loop(){
     player.lockedTarget = null;
   }
   if(moveData.active && !player.isAttacking && !player.isDodging){
+    const previousZ=hunter.position.z;
     const mag = Math.sqrt(moveData.x**2 + moveData.y**2);
     const sprintMult = mag>0.75?1.7:1.0;
     let speed = 0.14*sprintMult;
@@ -444,7 +445,7 @@ function loop(){
     const nz = hunter.position.z+mz;
     if(!checkWall(nx,hunter.position.z,0.6,hunter.position.y,Math.min(8.6,hunterVisualHeight))) hunter.position.x = nx;
     if(!checkWall(hunter.position.x,nz,0.6,hunter.position.y,Math.min(8.6,hunterVisualHeight))) hunter.position.z = nz;
-    updateHunterFloor();
+    updateHunterFloor(previousZ);
     updateStageLocationLabel(false);
     if(Math.hypot(mx,mz)>0.0001) hunter.rotation.y = Math.atan2(mx,mz);
     player.walkTime += dt*(sprintMult>1.5?7.0:5.2);
@@ -463,12 +464,13 @@ function loop(){
     player.dodgeTime += dt;
     const dodgeDuration = player.dodgeType === 'quickstep' ? 0.4 : (player.dodgeType === 'roll' ? 0.7 : 0.5);
     if(player.dodgeTime < dodgeDuration){
+      const previousZ=hunter.position.z;
       let speed = 0.3;
       if(player.dodgeType === 'roll') speed = 0.4;
       else if(player.dodgeType === 'quickstep') speed = 0.45;
       const nx = hunter.position.x + Math.sin(player.dodgeAngle)*speed;
       const nz = hunter.position.z + Math.cos(player.dodgeAngle)*speed;
-      if(!checkWall(nx,nz,0.65,hunter.position.y,Math.min(8.6,hunterVisualHeight))){ hunter.position.x = nx; hunter.position.z = nz; updateHunterFloor(); updateStageLocationLabel(false); }
+      if(!checkWall(nx,nz,0.65,hunter.position.y,Math.min(8.6,hunterVisualHeight))){ hunter.position.x = nx; hunter.position.z = nz; updateHunterFloor(previousZ); updateStageLocationLabel(false); }
       const progress=Math.min(1,player.dodgeTime/dodgeDuration);
       hunter.rotation.x=0;
       if(!hunterRig){
@@ -499,7 +501,7 @@ function loop(){
       if(!checkWall(hunter.position.x,nz,0.65,hunter.position.y,Math.min(8.6,hunterVisualHeight))) hunter.position.z=nz;
       const moved=Math.hypot(hunter.position.x-oldX,hunter.position.z-oldZ);
       attack.lungeRemaining=Math.max(0,attack.lungeRemaining-moved);
-      if(moved>0){ updateHunterFloor(); updateStageLocationLabel(false); }
+      if(moved>0){ updateHunterFloor(oldZ); updateStageLocationLabel(false); }
     }
     if(adjustedT < 0.25){
       const p = adjustedT/0.25;

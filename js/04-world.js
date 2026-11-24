@@ -644,7 +644,7 @@ function activateNearbyWorldObject(){
   elevator.moving=true;sfx('liftStart');
 }
 
-function getFloorHeightAt(x,z,currentY=0){
+function getFloorHeightAt(x,z,currentY=0,previousZ=z){
   for(const elevator of stageElevators){
     if(Math.abs(x-elevator.x)<=2.35&&Math.abs(z-elevator.z)<=2.35&&Math.abs(currentY-(elevator.currentY+0.4))<2.8) return elevator.currentY+0.4;
   }
@@ -659,9 +659,11 @@ function getFloorHeightAt(x,z,currentY=0){
   );
   for(const stair of stairCandidates){
     const along=z-stair.z;
+    const previousAlong=previousZ-stair.z;
     const t=Math.max(0,Math.min(1,along/stair.run));
     const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*t;
-    if(stairY<=currentY+0.6&&stairY>=currentY-1.35) reachable.push(stairY);
+    if(stairY<=currentY+0.6&&stairY>=currentY-1.35&&(stairY<=currentY+0.0001||along>previousAlong+0.0001)) reachable.push(stairY);
+    else if(stairY<currentY-1.35) reachable.push(stairY);
   }
   if(currentLocation===2) mountainWalkableSurfaces.forEach(surface=>{
     if(x>=surface.minX&&x<=surface.maxX&&z>=surface.minZ&&z<=surface.maxZ&&surface.y<=currentY+0.6&&surface.y>=currentY-1.35) reachable.push(surface.y);
@@ -672,7 +674,7 @@ function getFloorHeightAt(x,z,currentY=0){
   return FLOOR_LEVELS.reduce((closest,y)=>Math.abs(y-currentY)<Math.abs(closest-currentY)?y:closest,FLOOR_LEVELS[0]);
 }
 
-function updateHunterFloor(){
+function updateHunterFloor(previousZ){
   if(!hunter) return;
   if(currentLocation===2){
     const fall=mountainFallZones.find(zone=>hunter.position.x>=zone.minX&&hunter.position.x<=zone.maxX&&hunter.position.z>=zone.minZ&&hunter.position.z<=zone.maxZ&&
@@ -687,7 +689,22 @@ function updateHunterFloor(){
       sfx('hit');updateHUD();notify('СОРВАЛИСЬ С ОБРЫВА — ВОЗВРАЩЕНИЕ К ПОСЛЕДНЕМУ ФОНАРЮ');
     }
   }
-  hunter.position.y=getFloorHeightAt(hunter.position.x,hunter.position.z,hunter.position.y);
+  const x=hunter.position.x,z=hunter.position.z,previousY=hunter.position.y;
+  const floorY=getFloorHeightAt(x,z,previousY,Number.isFinite(previousZ)?previousZ:z);
+  const landedOnStair=stairs.some(stair=>{
+    const along=z-stair.z,side=Math.abs(x-stair.x);
+    if(side>stair.width/2+0.8||along<0.25||along>stair.run+0.8) return false;
+    const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*Math.max(0,Math.min(1,along/stair.run));
+    return stairY>stair.lowerY+0.15&&Math.abs(floorY-stairY)<0.2;
+  });
+  if(previousY>=FLOOR_LEVELS[1]-1.35&&Math.abs(floorY-FLOOR_LEVELS[0])<0.05&&previousY-floorY>1.35&&!landedOnStair){
+    player.hp=Math.max(0,player.hp-10);
+    player.screenShake=Math.max(player.screenShake,0.2);
+    if(typeof damageFlash==='function') damageFlash();
+    sfx('hit');updateHUD();
+    if(player.hp<=0&&!player.isDead) die();
+  }
+  hunter.position.y=floorY;
   const nextFloor=Math.abs(hunter.position.y-FLOOR_LEVELS[1])<FLOOR_HEIGHT/2?1:0;
   if(nextFloor!==currentFloorIndex){ currentFloorIndex=nextFloor; updateStageLocationLabel(true); }
 }
