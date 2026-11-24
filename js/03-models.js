@@ -118,6 +118,7 @@ function mountHunterModel(){
   modelRoot.name = 'hunter-model-root';
   let model = null;
   if(hunterRig){
+    modelRoot.scale.setScalar(2);
     modelRoot.add(hunterRig.root);
     model = modelRoot;
   }else{
