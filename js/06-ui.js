@@ -1181,6 +1181,7 @@ function toggleLockOn(){
   const nearest=getNearestLockOnTarget();
   if(nearest){
     player.lockedTarget = nearest;
+    hunter.rotation.y = Math.atan2(nearest.mesh.position.x-hunter.position.x, nearest.mesh.position.z-hunter.position.z);
     notify('🎯 ЗАХВАТ ЦЕЛИ');
     sfx('alert');
   } else {

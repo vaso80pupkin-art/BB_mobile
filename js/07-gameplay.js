@@ -422,10 +422,10 @@ function loop(){
     const dx = tp.x - hunter.position.x;
     const dz = tp.z - hunter.position.z;
     const targetAngle = Math.atan2(dx,dz);
-    let diff = targetAngle - cameraAngle;
+    let diff = targetAngle - hunter.rotation.y;
     while(diff>Math.PI) diff -= Math.PI*2;
     while(diff<-Math.PI) diff += Math.PI*2;
-    if(!player.isAttacking && !player.isDodging) cameraAngle += diff*0.15;
+    if(!player.isAttacking && !player.isDodging) hunter.rotation.y += diff*0.2;
   } else if(player.lockedTarget){
     player.lockedTarget = null;
   }
@@ -449,7 +449,7 @@ function loop(){
     if(!checkWall(hunter.position.x,nz,0.6,hunter.position.y,Math.min(8.6,hunterVisualHeight))) hunter.position.z = nz;
     updateHunterFloor(previousZ);
     updateStageLocationLabel(false);
-    if(Math.hypot(mx,mz)>0.0001) hunter.rotation.y = Math.atan2(mx,mz);
+    if(Math.hypot(mx,mz)>0.0001 && !player.lockedTarget) hunter.rotation.y = Math.atan2(mx,mz);
     player.walkTime += dt*(sprintMult>1.5?7.0:5.2);
     const wc = Math.sin(player.walkTime);
     if(hunterVisual){

@@ -69,6 +69,8 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
       rope.position.set(side*(width/2+0.1),(lowerY+upperY)/2,run/2);rope.rotation.x=ropeAngle;group.add(rope);
       const anchor=new THREE.Mesh(anchorGeometry,edge);
       anchor.position.set(side*(width/2+0.1),upperY,run);group.add(anchor);
+      const railX=x+side*(width/2+0.1),railHalfWidth=0.18;
+      wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+0.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+0.4,d:run+0.4,floorY:lowerY});
     }
   } else {
     const boxGeometry=new THREE.BoxGeometry(1,1,1);
@@ -87,6 +89,8 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
         const t=i/postCount,post=new THREE.Mesh(boxGeometry,edge);post.scale.set(0.2,1.0,0.2);
         post.position.set(side*(width/2+0.12),lowerY+t*rise+0.45,t*run);post.castShadow=true;group.add(post);
       }
+      const railX=x+side*(width/2+0.12),railHalfWidth=isStone?0.24:0.18;
+      wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+1.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+1.4,d:run+0.4,floorY:lowerY});
     }
   }
   group.position.set(x,0,z);scene.add(group);envObjects.push({mesh:group});
