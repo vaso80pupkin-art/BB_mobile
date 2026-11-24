@@ -141,10 +141,10 @@ const BASE_SKY_DREAM     = 0x18142a;
 const BASE_WALL_COLOR    = 0x282534;
 const BASE_FLOOR_COLOR   = 0x161420;
 const LOCATION_MOODS = [
-  {sky:0x0a0d15, fog:0.029, brightness:0.5},
-  {sky:0x12100f, fog:0.027},
-  {sky:0x09110f, fog:0.034},
-  {sky:0x100c1b, fog:0.030}
+  {sky:0x0a0d15, fog:0.029, brightness:0.5, lighting:{ambient:0x223344,hemiSky:0x334455,hemiGround:0x0a0510,moon:0x7088bb,rim:0x9aa9c4,fill:0x445577}},
+  {sky:0x17120f, fog:0.025, lighting:{ambient:0x5c5148,hemiSky:0x9b8c7d,hemiGround:0x211613,moon:0x9aabc5,rim:0xc29a72,fill:0x695447}},
+  {sky:0x111b21, fog:0.028, lighting:{ambient:0x4f6c78,hemiSky:0xa2c1cf,hemiGround:0x101b22,moon:0x83a9c4,rim:0xb6d2dc,fill:0x496a7a}},
+  {sky:0x130e1e, fog:0.030, lighting:{ambient:0x5d4c6b,hemiSky:0xa08db8,hemiGround:0x180f22,moon:0x9685b5,rim:0xc5a7d2,fill:0x584271}}
 ];
 let currentSkyColor = BASE_SKY_LANDSCAPE;
 let currentFogDensity = 0.029;

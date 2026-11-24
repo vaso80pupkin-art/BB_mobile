@@ -318,12 +318,13 @@ function applyBrightness(){
   }
   const mood = LOCATION_MOODS[currentLocation] || LOCATION_MOODS[0];
   const moodLight = gameMode === GameMode.PLAYING ? (mood.brightness ?? 1) : 1;
+  const lightMood = (gameMode === GameMode.PLAYING ? mood : LOCATION_MOODS[0]).lighting || LOCATION_MOODS[0].lighting;
   const gb = Math.max(0.2, gameBrightness) * moodLight;
-  if(lightingRefs.ambient) lightingRefs.ambient.intensity = 0.27 * gb;
-  if(lightingRefs.hemi)    lightingRefs.hemi.intensity    = 0.36 * gb;
-  if(lightingRefs.moon)    lightingRefs.moon.intensity    = 0.62 * gb;
-  if(lightingRefs.rim)     lightingRefs.rim.intensity     = 0.37 * gb;
-  if(lightingRefs.fill)    lightingRefs.fill.intensity    = 0.20 * gb;
+  if(lightingRefs.ambient){lightingRefs.ambient.color.setHex(lightMood.ambient);lightingRefs.ambient.intensity = 0.27 * gb;}
+  if(lightingRefs.hemi){lightingRefs.hemi.color.setHex(lightMood.hemiSky);lightingRefs.hemi.groundColor.setHex(lightMood.hemiGround);lightingRefs.hemi.intensity = 0.36 * gb;}
+  if(lightingRefs.moon){lightingRefs.moon.color.setHex(lightMood.moon);lightingRefs.moon.intensity = 0.62 * gb;}
+  if(lightingRefs.rim){lightingRefs.rim.color.setHex(lightMood.rim);lightingRefs.rim.intensity = 0.37 * gb;}
+  if(lightingRefs.fill){lightingRefs.fill.color.setHex(lightMood.fill);lightingRefs.fill.intensity = 0.20 * gb;}
   if(lightingRefs.moonMesh) lightingRefs.moonMesh.material.color.copy(new THREE.Color(0xd9e4f1).multiplyScalar(Math.max(0.45, skyBrightness)));
   if(lightingRefs.glow)     lightingRefs.glow.material.opacity = 0.28 * skyBrightness;
   renderer.toneMappingExposure = 0.96 * gb;

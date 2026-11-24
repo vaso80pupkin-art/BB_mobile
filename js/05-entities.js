@@ -393,6 +393,7 @@ function loadLocation(idx){
   buildLocationLandmarks(idx,ox,oz);
   buildCampaignTargets(idx,ox,oz);
   if(idx===2) buildMountainRoute(ox,oz);
+  buildRegionalVisuals(idx,floorRooms,ox,oz);
   createDistantHorizon(idx);
   rebuildWallCollisionGrid();
   spawnDustMotes(60);

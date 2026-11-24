@@ -986,12 +986,13 @@ function getLanternGlowMaterial(){
 function addCobblePatch(width,depth,cx,cz,y,ceiling=false,segmentSpacing=3){
   if(width<0.5 || depth<0.5) return;
   const surfaces=createSurfaceTextures();
+  const palette=getLocationVisualPalette(currentLocation);
   const geo=new THREE.PlaneGeometry(width,depth,Math.max(1,Math.min(96,Math.ceil(width/segmentSpacing))),Math.max(1,Math.min(72,Math.ceil(depth/segmentSpacing))));
   const pos=geo.attributes.position;
   for(let i=0;i<pos.count;i++) pos.setZ(i,(Math.random()-0.5)*0.035);
   geo.computeVertexNormals();
   const mat=new THREE.MeshStandardMaterial({
-    color:ceiling?0x77727b:0xffffff,map:surfaces.floor,bumpMap:surfaces.floorBump,
+    color:ceiling?palette.ceiling:palette.floor,map:surfaces.floor,bumpMap:surfaces.floorBump,
     bumpScale:ceiling?0.055:0.14,roughness:ceiling?0.9:0.62,metalness:0.025,
     side:ceiling?THREE.DoubleSide:THREE.FrontSide
   });

@@ -20,7 +20,7 @@ function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceilin
 }
 
 let roomWallUnitGeometry=null;
-function addRoomWallBatch(boxes,roomBounds,floorY){
+function addRoomWallBatch(boxes,roomBounds,floorY,locationIndex=currentLocation){
   if(!boxes.length) return;
   if(!roomWallUnitGeometry) roomWallUnitGeometry=new THREE.BoxGeometry(1,1,1);
   const p=roomWallUnitGeometry.attributes.position.array,n=roomWallUnitGeometry.attributes.normal.array,u=roomWallUnitGeometry.attributes.uv.array,idx=roomWallUnitGeometry.index.array;
@@ -41,8 +41,8 @@ function addRoomWallBatch(boxes,roomBounds,floorY){
   geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
   geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
   geometry.setIndex(indices); geometry.computeBoundingSphere();
-  const tex=createSurfaceTextures();
-  const material=new THREE.MeshStandardMaterial({color:0xffffff,map:tex.wall,bumpMap:tex.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
+  const tex=createSurfaceTextures(),palette=getLocationVisualPalette(locationIndex);
+  const material=new THREE.MeshStandardMaterial({color:palette.wall,map:tex.wall,bumpMap:tex.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
   const mesh=new THREE.Mesh(geometry,material);
   mesh.castShadow=true; mesh.receiveShadow=true;
   mesh.userData={isRoomBatch:true,colliders:boxes,targetOpacity:1,cx:(roomBounds.minX+roomBounds.maxX)/2,cy:floorY+5.25,cz:(roomBounds.minZ+roomBounds.maxZ)/2,minX:roomBounds.minX,maxX:roomBounds.maxX,minZ:roomBounds.minZ,maxZ:roomBounds.maxZ,w:roomBounds.maxX-roomBounds.minX,h:10.5,d:roomBounds.maxZ-roomBounds.minZ,floorY};
@@ -355,7 +355,7 @@ function buildStageFloor(locationIndex,floorIndex,ox,oz){
       if(blocked(x,y-1)){const edgeZ=wz-cellSize/2;addSegment(wx-cellSize/2,wx+cellSize/2,edgeZ-wallThickness/2,edgeZ+wallThickness/2);}
       if(blocked(x,y+1)){const edgeZ=wz+cellSize/2;addSegment(wx-cellSize/2,wx+cellSize/2,edgeZ-wallThickness/2,edgeZ+wallThickness/2);}
     }
-    addRoomWallBatch(boxes,bounds,floorY);
+    addRoomWallBatch(boxes,bounds,floorY,locationIndex);
     rooms.push({floorIndex,roomIndex,row,col,grid,roomX,roomZ,floorY,bounds});
   }
   return rooms;
@@ -850,7 +850,7 @@ function updateStageLocationLabel(show=false){
 function createGothicWall(worldX,worldY,worldZ,w,h,d,isBoundary){
   if(!scene) return null;
   const surfaces = createSurfaceTextures();
-  const mat = new THREE.MeshStandardMaterial({color:0xffffff,map:surfaces.wall,bumpMap:surfaces.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
+  const mat = new THREE.MeshStandardMaterial({color:getLocationVisualPalette(currentLocation).wall,map:surfaces.wall,bumpMap:surfaces.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
   wall.position.set(worldX,worldY,worldZ);
   wall.castShadow = false; wall.receiveShadow = true;
@@ -1140,7 +1140,9 @@ function createDistantHorizon(locationIndex){
   if(!horizonAssets){
     horizonAssets = {
       house:new THREE.MeshStandardMaterial({color:0x19171b,roughness:1,metalness:0}),
-      forest:new THREE.MeshStandardMaterial({color:0x18201b,roughness:1,metalness:0}),
+      cathedral:new THREE.MeshStandardMaterial({color:0x211b22,roughness:1,metalness:0}),
+      castle:new THREE.MeshStandardMaterial({color:0x15131d,roughness:1,metalness:0}),
+      forest:new THREE.MeshStandardMaterial({color:0x202a2a,roughness:1,metalness:0}),
       block:new THREE.BoxGeometry(1,1,1),
       roof:new THREE.ConeGeometry(0.55,1,4),
       finial:new THREE.ConeGeometry(0.12,1,6),
@@ -1181,8 +1183,8 @@ function createDistantHorizon(locationIndex){
       const forest = locationIndex === 2;
       const width = 5+Math.random()*4;
       const depth = 5+Math.random()*4;
-      const height = forest ? 13+Math.random()*15 : (locationIndex===1 ? 14+Math.random()*14 : 9+Math.random()*13);
-      const material = forest ? horizonAssets.forest : horizonAssets.house;
+      const height = forest ? 13+Math.random()*15 : (locationIndex===1 ? 14+Math.random()*14 : (locationIndex===3 ? 12+Math.random()*14 : 9+Math.random()*13));
+      const material = forest ? horizonAssets.forest : (locationIndex===1 ? horizonAssets.cathedral : (locationIndex===3 ? horizonAssets.castle : horizonAssets.house));
       const addPart = (geometry,mat,px,py,pz,sx,sy,sz) => {
         const mesh = new THREE.Mesh(geometry,mat);
         mesh.position.set(px,py,pz);
@@ -1201,10 +1203,10 @@ function createDistantHorizon(locationIndex){
         }
       } else {
         addPart(horizonAssets.block,material,0,height/2,0,width,height,depth);
-        const roofH = locationIndex===1 ? height*0.46 : height*0.34;
+        const roofH = locationIndex===1 ? height*0.46 : (locationIndex===3 ? height*0.5 : height*0.34);
         addPart(horizonAssets.roof,material,0,height+roofH/2,0,width*0.88,roofH,width*0.88);
         if(locationIndex===1 || i%2===0){
-          const spireH = locationIndex===1 ? 6+Math.random()*6 : 3+Math.random()*4;
+          const spireH = locationIndex===1 ? 6+Math.random()*6 : (locationIndex===3 ? 7+Math.random()*8 : 3+Math.random()*4);
           addPart(horizonAssets.finial,material,0,height+roofH+spireH/2,0,width*0.2,spireH,width*0.2);
         }
       }
