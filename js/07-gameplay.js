@@ -637,12 +637,21 @@ function loop(){
   const shakeY = (Math.random()-0.5)*player.screenShake;
   player.screenShake *= 0.88;
   if(player.screenShake < 0.005) player.screenShake = 0;
-  const camX = hunter.position.x + Math.sin(cameraAngle)*cameraDistance;
-  const camZ = hunter.position.z + Math.cos(cameraAngle)*cameraDistance;
-  camera.position.x = lerp(camera.position.x,camX+shakeX,0.18);
-  camera.position.z = lerp(camera.position.z,camZ+shakeX,0.18);
-  camera.position.y = lerp(camera.position.y,hunter.position.y+cameraHeight+shakeY,0.15);
-  camera.lookAt(hunter.position.x,hunter.position.y+Math.max(2.4,hunterVisualHeight*0.55),hunter.position.z);
+  const camDistance=Math.max(CAMERA_MIN_DISTANCE,cameraDistance);
+  const lookTarget=new THREE.Vector3(hunter.position.x,hunter.position.y+Math.max(2.4,hunterVisualHeight*0.55),hunter.position.z);
+  const desiredCamera=new THREE.Vector3(
+    hunter.position.x+Math.sin(cameraAngle)*camDistance+shakeX,
+    hunter.position.y+cameraHeight+shakeY,
+    hunter.position.z+Math.cos(cameraAngle)*camDistance+shakeX
+  );
+  const safeCamera=getCameraSafePosition(lookTarget,desiredCamera);
+  const smoothedCamera=new THREE.Vector3(
+    lerp(camera.position.x,safeCamera.x,0.18),
+    lerp(camera.position.y,safeCamera.y,0.15),
+    lerp(camera.position.z,safeCamera.z,0.18)
+  );
+  camera.position.copy(getCameraSafePosition(lookTarget,smoothedCamera));
+  camera.lookAt(lookTarget);
   renderer.render(scene,camera);
 }
 

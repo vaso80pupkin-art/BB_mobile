@@ -476,7 +476,7 @@ function addShortcutGate(x,z,floorY,locationIndex,floorIndex){
   panel.position.set(x,floorY+height/2,z);panel.castShadow=true;panel.receiveShadow=true;group.add(panel);
   const collider={minX:x-width/2,maxX:x+width/2,minY:floorY,maxY:floorY+height,minZ:z-thickness/2,maxZ:z+thickness/2,cx:x,cy:floorY+height/2,cz:z,w:width,h:height,d:thickness,floorY};
   scene.add(group);envObjects.push({mesh:group});wallColliders.push(collider);
-  const gate={group,panel,collider,levers:[],opened:false,locationIndex,floorIndex};
+  const gate={group,panel,collider,levers:[],opened:false,opening:false,openElapsed:0,panelStartY:panel.position.y,panelRise:height+0.7,locationIndex,floorIndex};
   shortcutGates.push(gate);
   createGateLever(group,gate,x,z-3.45,floorY,'south');
   createGateLever(group,gate,x,z+3.45,floorY,'north');
@@ -560,6 +560,18 @@ function campaignExitPrompt(destination){
 }
 
 function updateStageMechanics(dt){
+  shortcutGates.forEach(gate=>{
+    if(!gate.opening) return;
+    gate.openElapsed+=dt;
+    const t=Math.min(1,gate.openElapsed/1.5),eased=t*t*(3-2*t);
+    gate.panel.position.y=gate.panelStartY+gate.panelRise*eased;
+    if(t>=1){
+      gate.opening=false;gate.opened=true;
+      wallColliders=wallColliders.filter(box=>box!==gate.collider);
+      rebuildWallCollisionGrid();
+      notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
+    }
+  });
   stageElevators.forEach(elevator=>{
     if(!elevator.moving) return;
     const direction=Math.sign(elevator.targetY-elevator.currentY);
@@ -610,12 +622,11 @@ function activateNearbyWorldObject(){
   if(item.type==='secretWall'){notify('ЗАВАЛ НУЖНО РАЗРУШИТЬ УДАРОМ ОРУЖИЯ');return;}
   if(item.type==='gateLever'){
     const gate=item.gate;
-    if(gate.opened){notify('КОРОТКИЙ ПУТЬ УЖЕ ОТКРЫТ');return;}
-    gate.opened=true;gate.group.remove(gate.panel);wallColliders=wallColliders.filter(box=>box!==gate.collider);rebuildWallCollisionGrid();
+    if(gate.opened||gate.opening){notify('ВОРОТА УЖЕ ОТКРЫВАЮТСЯ');return;}
+    gate.opening=true;gate.openElapsed=0;
     gate.levers.forEach(lever=>lever.handle.material.color.setHex(0x44bb66));
-    rebuildWallCollisionGrid();
     worldInteractables=worldInteractables.filter(entry=>entry.gate!==gate);
-    sfx('lever');notify('КОРОТКИЙ ПУТЬ ОТКРЫТ');SaveSystem.save();
+    sfx('lever');notify('ВОРОТА ОТКРЫВАЮТСЯ');
     return;
   }
   if(item.type==='campaignExit'){
@@ -1122,13 +1133,54 @@ let _wallCheckFrame = 0;
 let worldTutorialTimers=[];
 let chainTarget=null;
 let breakableBarriers=[];
+function segmentAabbEntry(start,end,box,padding=0){
+  if(!box||![box.minX,box.maxX,box.minY,box.maxY,box.minZ,box.maxZ].every(Number.isFinite)) return null;
+  let tMin=0,tMax=1;
+  const axes=[
+    [start.x,end.x-start.x,box.minX-padding,box.maxX+padding],
+    [start.y,end.y-start.y,box.minY-padding,box.maxY+padding],
+    [start.z,end.z-start.z,box.minZ-padding,box.maxZ+padding]
+  ];
+  for(const [origin,delta,min,max] of axes){
+    if(Math.abs(delta)<1e-8){if(origin<min||origin>max)return null;continue;}
+    const a=(min-origin)/delta,b=(max-origin)/delta;
+    tMin=Math.max(tMin,Math.min(a,b));tMax=Math.min(tMax,Math.max(a,b));
+    if(tMin>tMax)return null;
+  }
+  if(tMax<0||tMin>1)return null;
+  return Math.max(0,tMin);
+}
+function getCameraSafePosition(target,desired){
+  const offset=desired.clone().sub(target),distance=offset.length();
+  if(distance<1e-6)return desired.clone();
+  let safeDistance=distance;
+  wallColliders.forEach(box=>{
+    const entry=segmentAabbEntry(target,desired,box,CAMERA_COLLISION_PADDING);
+    if(entry!==null&&entry>1e-4)safeDistance=Math.min(safeDistance,Math.max(0.25,entry*distance));
+  });
+  const dy=desired.y-target.y;
+  if(Math.abs(dy)>1e-8){
+    floorMeshes.forEach(ceiling=>{
+      if(!ceiling.userData?.isCeiling) return;
+      const t=(ceiling.position.y-target.y)/dy;
+      if(t<=1e-4||t>=1) return;
+      const x=target.x+(desired.x-target.x)*t,z=target.z+(desired.z-target.z)*t;
+      const width=ceiling.geometry?.parameters?.width||0,depth=ceiling.geometry?.parameters?.height||0;
+      if(Math.abs(x-ceiling.position.x)>width/2+CAMERA_COLLISION_PADDING||Math.abs(z-ceiling.position.z)>depth/2+CAMERA_COLLISION_PADDING)return;
+      const safeY=ceiling.position.y+(dy>0?-CAMERA_COLLISION_PADDING:CAMERA_COLLISION_PADDING);
+      const safeT=(safeY-target.y)/dy;
+      if(safeT>0)safeDistance=Math.min(safeDistance,safeT*distance);
+    });
+  }
+  return target.clone().addScaledVector(offset.normalize(),Math.max(0.25,safeDistance));
+}
 function updateWallTransparency(){
   _wallCheckFrame++;
   if(_wallCheckFrame % 6 !== 0) return;
   if(!hunter || !camera) return;
   const cPos = camera.position.clone();
   const hBase = hunter.position.clone();
-  const hCenter = new THREE.Vector3(hBase.x, hBase.y + Math.max(1.5,hunterVisualHeight*0.55), hBase.z);
+  const hCenter = new THREE.Vector3(hBase.x, hBase.y + Math.max(2.4,hunterVisualHeight*0.55), hBase.z);
   const hunterDist = cPos.distanceTo(hCenter);
   const mainDir = hCenter.clone().sub(cPos).normalize();
   wallMeshes.forEach(wall => {
@@ -1137,6 +1189,7 @@ function updateWallTransparency(){
     const candidates=wall.userData.colliders||[wall.userData];
     for(const box of candidates){
       if(hunter.position.y+2.2<box.minY || hunter.position.y+2.2>box.maxY+2) continue;
+      if(segmentAabbEntry(hCenter,cPos,box)!==null){target=wall.userData.isRoomBatch?0.48:0.34;break;}
       const dx=box.cx-cPos.x,dy=box.cy-cPos.y,dz=box.cz-cPos.z;
       const distToCam=Math.sqrt(dx*dx+dy*dy+dz*dz);
       if(distToCam<2.8){ target=wall.userData.isRoomBatch?0.82:0.58; break; }
@@ -1149,7 +1202,7 @@ function updateWallTransparency(){
     wall.userData.targetOpacity = target;
     const speed = target < wall.material.opacity ? 0.18 : 0.10;
     wall.material.opacity = lerp(wall.material.opacity, target, speed);
-    wall.material.depthWrite=wall.material.opacity>0.68;
+    wall.material.depthWrite=wall.material.opacity>0.52;
     wall.visible = true;
   });
 }

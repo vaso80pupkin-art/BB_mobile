@@ -120,6 +120,8 @@ function canEnterLocation(index){
   return false;
 }
 let cameraAngle = 0, cameraDistance = 10, cameraHeight = 6;
+const CAMERA_MIN_DISTANCE = 4.5;
+const CAMERA_COLLISION_PADDING = 0.4;
 let gameTime = 0, parryCount = 0;
 let minimapCtx = null;
 let menuOrbitTime = 0;
