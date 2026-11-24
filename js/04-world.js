@@ -649,14 +649,19 @@ function getFloorHeightAt(x,z,currentY=0){
     if(Math.abs(x-elevator.x)<=2.35&&Math.abs(z-elevator.z)<=2.35&&Math.abs(currentY-(elevator.currentY+0.4))<2.8) return elevator.currentY+0.4;
   }
   const inLowerVoid=currentLocation===2&&mountainFloorVoids.some(hole=>x>=hole.x0&&x<=hole.x1&&z>=hole.z0&&z<=hole.z1);
-  const reachable=FLOOR_LEVELS.filter(y=>y<=currentY+0.6&&y>=currentY-1.35&&!(y===0&&inLowerVoid));
-  for(const stair of stairs){
+  const stairCandidates=stairs.filter(stair=>{
     const side=Math.abs(x-stair.x),along=z-stair.z;
-    if(side<=stair.width/2+0.8&&along>=-0.25&&along<=stair.run+0.25){
-      const t=Math.max(0,Math.min(1,along/stair.run));
-      const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*t;
-      if(stairY<=currentY+0.6&&stairY>=currentY-1.35) reachable.push(stairY);
-    }
+    return side<=stair.width/2+0.8&&along>=-1&&along<=stair.run+1;
+  });
+  const reachable=FLOOR_LEVELS.filter(y=>
+    y<=currentY+0.6&&y>=currentY-1.35&&!(y===0&&inLowerVoid)&&
+    !stairCandidates.some(stair=>Math.abs(y-stair.upperY)<0.001)
+  );
+  for(const stair of stairCandidates){
+    const along=z-stair.z;
+    const t=Math.max(0,Math.min(1,along/stair.run));
+    const stairY=stair.lowerY+(stair.upperY-stair.lowerY)*t;
+    if(stairY<=currentY+0.6&&stairY>=currentY-1.35) reachable.push(stairY);
   }
   if(currentLocation===2) mountainWalkableSurfaces.forEach(surface=>{
     if(x>=surface.minX&&x<=surface.maxX&&z>=surface.minZ&&z<=surface.maxZ&&surface.y<=currentY+0.6&&surface.y>=currentY-1.35) reachable.push(surface.y);
