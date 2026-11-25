@@ -385,6 +385,19 @@ function buildGothicRoomArchitecture(floorRooms,locationIndex,stairSpecs,elevato
   scene.add(group);envObjects.push({mesh:group});
 }
 
+let cathedralSliceLoadToken=0;
+function loadCathedralGroundSlice(entranceRoom){
+  if(!THREE.GLTFLoader||!entranceRoom||entranceRoom.floorIndex!==0||!scene)return;
+  const token=++cathedralSliceLoadToken;
+  new THREE.GLTFLoader().load('./assets/levelgen/cathedral_ground_slice.glb',gltf=>{
+    if(token!==cathedralSliceLoadToken||currentLocation!==1||!scene)return;
+    const root=gltf.scene;
+    root.position.set(entranceRoom.roomX+ROOM_WORLD_SIZE/2,entranceRoom.floorY,entranceRoom.roomZ+ROOM_WORLD_SIZE/2);
+    root.traverse(object=>{if(object.isMesh){object.castShadow=false;object.receiveShadow=true;}});
+    scene.add(root);envObjects.push({mesh:root});
+  },undefined,error=>console.warn('[BB] Cathedral slice GLB unavailable; existing procedural visuals remain active.',error));
+}
+
 let generatedDungeonLoadToken=0;
 function loadGeneratedDungeonArt(){
   if(!THREE.GLTFLoader||!window.BB_GENERATED_DUNGEON_LAYOUT) return;
@@ -496,6 +509,7 @@ function loadLocation(idx){
   buildCampaignTargets(idx,ox,oz);
   if(idx===2) buildMountainRoute(ox,oz);
   buildRegionalVisuals(idx,floorRooms,ox,oz);
+  if(idx===1) loadCathedralGroundSlice(floorRooms[0]&&floorRooms[0][0]);
   createDistantHorizon(idx);
   rebuildWallCollisionGrid();
   spawnDustMotes(60);
