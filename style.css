@@ -367,7 +367,7 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
   background-color:#080b10;
   background-image:
     linear-gradient(180deg,rgba(3,6,10,.10) 0%,rgba(5,7,10,.04) 40%,rgba(3,3,5,.38) 72%,rgba(2,2,3,.72) 100%),
-    url("B.jpeg");
+    url("assets/cathedral-menu-background.webp");
   background-repeat:no-repeat;
   background-size:100% 100%,cover;
   background-position:center,center center;
