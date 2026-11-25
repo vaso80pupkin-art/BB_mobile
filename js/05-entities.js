@@ -386,16 +386,55 @@ function buildGothicRoomArchitecture(floorRooms,locationIndex,stairSpecs,elevato
 }
 
 let cathedralSliceLoadToken=0;
-function loadCathedralGroundSlice(entranceRoom){
-  if(!THREE.GLTFLoader||!entranceRoom||entranceRoom.floorIndex!==0||!scene)return;
+function loadCathedralHallSlice(x,y,z,locationIndex,scale=1){
+  if(!THREE.GLTFLoader||!scene)return;
   const token=++cathedralSliceLoadToken;
   new THREE.GLTFLoader().load('./assets/levelgen/cathedral_ground_slice.glb',gltf=>{
-    if(token!==cathedralSliceLoadToken||currentLocation!==1||!scene)return;
+    if(token!==cathedralSliceLoadToken||currentLocation!==locationIndex||!scene)return;
     const root=gltf.scene;
-    root.position.set(entranceRoom.roomX+ROOM_WORLD_SIZE/2,entranceRoom.floorY,entranceRoom.roomZ+ROOM_WORLD_SIZE/2);
-    root.traverse(object=>{if(object.isMesh){object.castShadow=false;object.receiveShadow=true;}});
+    root.userData.generatedAsset='cathedral_ground_slice.glb';
+    root.position.set(x,y,z);root.scale.setScalar(scale);
+    const cathedralTextures=createSurfaceTextures();
+    cathedralTextures.wall.encoding=THREE.LinearEncoding;cathedralTextures.floor.encoding=THREE.LinearEncoding;
+    root.traverse(object=>{
+      if(!object.isMesh)return;
+      object.castShadow=false;object.receiveShadow=true;
+      const materials=Array.isArray(object.material)?object.material:[object.material];
+      materials.forEach(material=>{
+        const name=(material.name||'').toLowerCase();
+        if(material.color){
+          if(name.includes('glass'))material.color.setHex(0x0d2947);
+          else if(locationIndex===2&&name.includes('wood'))material.color.setHex(0x68452b);
+          else if(locationIndex===2&&name.includes('pine'))material.color.setHex(0x234735);
+          else if(locationIndex===2&&name.includes('fire'))material.color.setHex(0xff6b20);
+          else if(locationIndex===2&&name.includes('abyss'))material.color.setHex(0x05090e);
+          else if(locationIndex===2&&name.includes('ruin'))material.color.setHex(0x555b62);
+          else if(locationIndex===2&&name.includes('rock'))material.color.setHex(0x1c2931);
+          else if(name.includes('limestone')||name.includes('trim'))material.color.setHex(0x4a5055);
+          else if(name.includes('brass')||name.includes('metal'))material.color.setHex(0x6a4420);
+          else material.color.setHex(0x1b242b);
+        }
+        if(locationIndex!==2&&!name.includes('glass')){
+          material.map=name.includes('floor')?cathedralTextures.floor:cathedralTextures.wall;
+          material.normalMap=name.includes('floor')?cathedralTextures.floorNormal:cathedralTextures.wallNormal;
+          material.roughnessMap=name.includes('floor')?cathedralTextures.floorRoughness:cathedralTextures.wallRoughness;
+          material.needsUpdate=true;
+        }
+        if(material.emissive){material.emissive.setHex(name.includes('fire')?0xff3a0a:(name.includes('glass')?0x06172b:0x000000));material.emissiveIntensity=name.includes('fire')?1.8:(name.includes('glass')?0.14:0);}
+        if(name.includes('glass')){material.transparent=true;material.opacity=0.44;material.depthWrite=false;}
+        if(material.roughness!==undefined)material.roughness=0.92;
+      });
+    });
     scene.add(root);envObjects.push({mesh:root});
+    if(locationIndex===2){
+      const moon=new THREE.DirectionalLight(0x83a9c8,0.38);moon.position.set(x-20,32,z+28);moon.target.position.set(x,0,z-16);scene.add(moon,moon.target);envObjects.push({mesh:moon});
+      const camp=new THREE.PointLight(0xff7130,1.45,24,2);camp.position.set(x,2.5,z-16);registerGraphicsPointLight(camp);scene.add(camp);envObjects.push({mesh:camp});
+    }
   },undefined,error=>console.warn('[BB] Cathedral slice GLB unavailable; existing procedural visuals remain active.',error));
+}
+function loadCathedralGroundSlice(entranceRoom){
+  if(!entranceRoom||entranceRoom.floorIndex!==0)return;
+  loadCathedralHallSlice(entranceRoom.roomX+ROOM_WORLD_SIZE/2,entranceRoom.floorY,entranceRoom.roomZ+ROOM_WORLD_SIZE/2,1,1);
 }
 
 let generatedDungeonLoadToken=0;
@@ -438,6 +477,26 @@ function loadGeneratedDungeonArt(){
     rebuildWallCollisionGrid();
   },undefined,error=>console.warn('[BB] Gothic dungeon GLB load failed; keeping the procedural fallback.',error));
 }
+function loadGothicChasmArt(ox,oz){
+  if(!THREE.GLTFLoader)return;
+  const loadToken=generatedDungeonLoadToken,loader=new THREE.GLTFLoader();
+  loader.load('./assets/levelgen/gothic_viaduct.glb',gltf=>{
+    if(loadToken!==generatedDungeonLoadToken||currentLocation!==2)return;
+    const root=gltf.scene;root.userData.generatedAsset='gothic_viaduct.glb';root.position.set(ox+STAGE_WORLD_WIDTH/2+26,FLOOR_HEIGHT+1,oz+STAGE_WORLD_DEPTH/2+23);root.rotation.y=Math.PI/2;root.scale.setScalar(1.55);
+    root.traverse(object=>{
+      if(!object.isMesh)return;
+      object.castShadow=graphicsQuality==='ultra';object.receiveShadow=true;
+      const materials=Array.isArray(object.material)?object.material:[object.material];
+      materials.forEach(material=>{
+        if(material.color)material.color.setHex(0x27323a);
+        if(material.emissive)material.emissive.setHex(0x000000);
+        if(material.emissiveIntensity!==undefined)material.emissiveIntensity=0;
+        if(material.roughness!==undefined)material.roughness=0.96;
+      });
+    });
+    scene.add(root);envObjects.push({mesh:root});
+  },undefined,error=>console.warn('[BB] Gothic viaduct GLB load failed; keeping procedural arches.',error));
+}
 
 function loadLocation(idx){
   idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
@@ -454,6 +513,9 @@ function loadLocation(idx){
   scene.background = new THREE.Color(currentSkyColor).multiplyScalar(skyBrightness);
   scene.fog = new THREE.FogExp2(currentSkyColor, currentFogDensity);
   scene.fog.color.copy(scene.background);
+  if(lightingRefs.moonMesh){lightingRefs.moonMesh.visible=true;lightingRefs.moonMesh.scale.setScalar(idx===2?0.55:1);}
+  if(lightingRefs.glow){lightingRefs.glow.visible=true;lightingRefs.glow.scale.setScalar(idx===2?0.62:1);}
+  if(window._rainMesh)window._rainMesh.visible=idx!==2;
 
   $('locName').textContent = LOCATIONS[idx];
   $('locName').classList.remove('show'); void $('locName').offsetWidth;
@@ -461,10 +523,12 @@ function loadLocation(idx){
   $('bossWrap').classList.remove('show');
   const ox=stageBounds.minX,oz=stageBounds.minZ;
   const mountainRoute=idx===2?getMountainRouteLayout(ox,oz):null;
+  const gothicLayout=idx===2?getGothicChasmLayout(ox,oz):null;
   const floorRooms=[buildStageFloor(idx,0,ox,oz),buildStageFloor(idx,1,ox,oz)];
   const generatedStaircases=idx===3?window.BB_GENERATED_DUNGEON_LAYOUT?.staircases:null;
   const stairSpecs=generatedStaircases&&generatedStaircases.length
     ?generatedStaircases.map(stair=>({...stair,style:'stone'}))
+    :idx===2?[]
     :[
       {col:2,row:0,run:28,width:4.8,style:'stone'},
       {col:0,row:1,run:25,width:4.6,style:'wood'},
@@ -480,9 +544,9 @@ function loadLocation(idx){
   const elevatorX=ox+3*ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
   const elevatorZ=oz+ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
   stairHoles.push({x0:elevatorX-3.25,x1:elevatorX+3.25,z0:elevatorZ-3.25,z1:elevatorZ+3.25});
-  const lowerFloorOpenings=mountainRoute?[mountainRoute.wellOpening,mountainRoute.spiralOpening]:[];
+  const lowerFloorOpenings=idx===2?[mountainRoute.wellOpening,mountainRoute.spiralOpening,gothicLayout.void]:[];
   mountainFloorVoids=lowerFloorOpenings;
-  const upperFloorHoles=stairHoles.concat(mountainRoute?mountainRoute.fallOpenings:[]);
+  const upperFloorHoles=stairHoles.concat(mountainRoute?mountainRoute.fallOpenings:[],idx===2?[{x0:gothicLayout.void.x0-4,x1:gothicLayout.void.x1+4,z0:gothicLayout.void.z0-4,z1:gothicLayout.void.z1+4}]:[]);
   const floorMargin=10;
   const floorSegmentSpacing=idx===2?6:3;
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0],lowerFloorOpenings,false,floorSegmentSpacing);
@@ -490,13 +554,18 @@ function loadLocation(idx){
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]-1.5,upperFloorHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true,floorSegmentSpacing);
+  if(idx===2){
+    wallMeshes.forEach(mesh=>{mesh.visible=false;});
+    floorMeshes.forEach(mesh=>{mesh.visible=false;});
+  }
   stairSpecs.forEach(spec=>{
     if(generatedStaircases&&generatedStaircases.length) registerGeneratedDungeonStaircase(spec);
     else addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style);
   });
   addStageElevator(elevatorX,elevatorZ,FLOOR_LEVELS[0],FLOOR_LEVELS[1]);
   if(idx!==3&&idx!==2) buildGothicRoomArchitecture(floorRooms,idx,stairSpecs,elevatorX,elevatorZ);
-  const shortcutX=ox+2.5*ROOM_WORLD_SIZE,shortcutZ=oz+ROOM_WORLD_SIZE;
+  const shortcutX=idx===2?gothicLayout.centerX+66:ox+2.5*ROOM_WORLD_SIZE;
+  const shortcutZ=idx===2?gothicLayout.lowerZ+18:oz+ROOM_WORLD_SIZE;
   const generatedShortcuts=idx===3?window.BB_GENERATED_DUNGEON_LAYOUT?.shortcuts:null;
   if(generatedShortcuts&&generatedShortcuts.length){
     generatedShortcuts.forEach(gate=>addShortcutGate(gate.world_x,gate.world_z,FLOOR_LEVELS[gate.floor],idx,gate.floor,{farSideOnly:gate.opens_from==='far_side'}));
@@ -507,7 +576,14 @@ function loadLocation(idx){
   scatterCryptAtmosphere(floorRooms,idx);
   buildLocationLandmarks(idx,ox,oz);
   buildCampaignTargets(idx,ox,oz);
-  if(idx===2) buildMountainRoute(ox,oz);
+  if(idx===2){
+    buildMountainRoute(ox,oz);loadCathedralHallSlice(gothicLayout.centerX,0,gothicLayout.lowerZ,2,1.0);
+    scene.traverse(object=>{
+      const material=object.material;
+      const color=material&&material.color;
+      if(object.isMesh&&color&&object.position.y<=0.25&&color.r>0.82&&color.g>0.82&&color.b>0.82)object.visible=false;
+    });
+  }
   buildRegionalVisuals(idx,floorRooms,ox,oz);
   if(idx===1) loadCathedralGroundSlice(floorRooms[0]&&floorRooms[0][0]);
   createDistantHorizon(idx);
@@ -515,8 +591,8 @@ function loadLocation(idx){
   spawnDustMotes(60);
   if(idx===3) loadGeneratedDungeonArt();
   const startRoom=floorRooms[0][0];
-  const spawnX=startRoom.roomX+cellSize*3.5;
-  const spawnZ=startRoom.roomZ+cellSize*3.5;
+  const spawnX=idx===2?gothicLayout.centerX-62:startRoom.roomX+cellSize*3.5;
+  const spawnZ=idx===2?gothicLayout.lowerZ:startRoom.roomZ+cellSize*3.5;
   spawnLantern(spawnX+2.4,spawnZ+1.0,true,FLOOR_LEVELS[0]);
   player.respawnPoint={x:spawnX,z:spawnZ,y:FLOOR_LEVELS[0],loc:idx,floor:0};
   if(hunter){
@@ -553,7 +629,7 @@ function loadLocation(idx){
     }
   }
   const centralStair=stairSpecs[0];
-  spawnLantern(centralStair.x,centralStair.z+centralStair.run+2,false,FLOOR_LEVELS[1]);
+  if(centralStair)spawnLantern(centralStair.x,centralStair.z+centralStair.run+2,false,FLOOR_LEVELS[1]);
   const bossRoom=floorRooms[1][ROOMS_PER_FLOOR-1];
   const bossCell=Math.floor(mazeSize/2)+0.5;
   const bx=bossRoom.roomX+bossCell*cellSize;

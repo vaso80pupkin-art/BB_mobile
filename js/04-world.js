@@ -989,6 +989,7 @@ function createGothicWall(worldX,worldY,worldZ,w,h,d,isBoundary){
 }
 function buildLocationLandmarks(locationIndex,ox,oz){
   if(!scene) return;
+  if(locationIndex===2) return;
   const rng=seededRandom(0x51a7+locationIndex*7919),trees=[],rocks=[],props=[];
   const treeGeo=new THREE.CylinderGeometry(0.35,0.62,5,6),pineGeo=new THREE.ConeGeometry(2.2,6,6);
   const rockGeo=new THREE.DodecahedronGeometry(1.25,0),treeMat=new THREE.MeshStandardMaterial({color:locationIndex===2?0x28362c:0x211c1b,roughness:1});
@@ -1115,8 +1116,8 @@ function buildMountainBridge(x,z,floorY,width,length,material,underground=false)
 function buildMountainRoute(ox,oz){
   const route=getMountainRouteLayout(ox,oz),floorY=-8;
   mountainFallZones.push(...route.fallZones);
-  const rock=new THREE.MeshStandardMaterial({color:0x38363a,roughness:0.98,bumpMap:createSurfaceTextures().wallBump,bumpScale:0.1});
-  const wetRock=new THREE.MeshStandardMaterial({color:0x293536,roughness:0.72,metalness:0.08,emissive:0x061112,emissiveIntensity:0.18});
+  const rock=new THREE.MeshStandardMaterial({color:0x202a31,roughness:0.98,bumpMap:createSurfaceTextures().wallBump,bumpScale:0.1});
+  const wetRock=new THREE.MeshStandardMaterial({color:0x17262b,roughness:0.72,metalness:0.08,emissive:0x061112,emissiveIntensity:0.18});
   const wood=new THREE.MeshStandardMaterial({color:0x49362a,roughness:0.9});
   const cave=new THREE.Group();
   addMountainFloorPatch(-48,27,64,26,floorY,rock);
@@ -1166,6 +1167,10 @@ function buildMountainRoute(ox,oz){
   for(let i=0;i<5;i++){const log=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,1.55,7),wood);log.rotation.z=Math.PI/2;log.rotation.y=i*Math.PI/5;log.position.set(route.valleyX+7,0.22,route.valleyZ+1);fire.add(log);}
   const glow=new THREE.PointLight(0xc05c24,1.3,13,2);glow.position.set(route.valleyX+7,1.2,route.valleyZ+1);fire.add(glow);sceneDress.add(fire);
   scene.add(sceneDress);envObjects.push({mesh:sceneDress});
+  const cloudMat=new THREE.MeshBasicMaterial({color:0x4f6270,transparent:true,opacity:0.12,depthWrite:false,side:THREE.DoubleSide});
+  for(const [cx,cy,cz,sx,sy] of [[-12,18,-42,92,13],[28,23,-68,120,17],[-42,30,-92,150,20],[0,2,-16,70,8],[-24,5,-34,54,7]]){
+    const cloud=new THREE.Mesh(new THREE.PlaneGeometry(sx,sy),cloudMat);cloud.position.set(cx,cy,cz);cloud.rotation.z=0.08;scene.add(cloud);envObjects.push({mesh:cloud});
+  }
 
   const puddle=new THREE.Mesh(new THREE.CircleGeometry(2.8,24),new THREE.MeshStandardMaterial({color:0x1a2a2c,roughness:0.25,metalness:0.2,transparent:true,opacity:0.72}));
   puddle.rotation.x=-Math.PI/2;puddle.position.set(-33,floorY+0.015,27);cave.add(puddle);
@@ -1196,6 +1201,68 @@ function buildMountainRoute(ox,oz){
     const trailStone=new THREE.Mesh(new THREE.DodecahedronGeometry(0.62,0),trailMaterial);
     trailStone.position.set(px,0.08,pz);trailStone.scale.set(1.65,0.16,1.05);trailStone.rotation.y=t*1.4;trailStone.receiveShadow=true;scene.add(trailStone);envObjects.push({mesh:trailStone});
   }
+}
+
+function getGothicChasmLayout(ox,oz){
+  const centerX=ox+STAGE_WORLD_WIDTH/2,centerZ=oz+STAGE_WORLD_DEPTH/2;
+  return {centerX,centerZ,void:{x0:centerX-38,x1:centerX+38,z0:centerZ-26,z1:centerZ+26},lowerZ:centerZ-4,upperZ:centerZ+17};
+}
+function addGothicChasmDeck(x,z,y,length,width,axis,stone){
+  const alongX=axis==='x',deck=new THREE.Mesh(new THREE.BoxGeometry(alongX?length:width,0.42,alongX?width:length),stone);
+  deck.position.set(x,y-0.21,z);deck.castShadow=true;deck.receiveShadow=true;scene.add(deck);envObjects.push({mesh:deck});
+  mountainWalkableSurfaces.push({minX:x-(alongX?length:width)/2,maxX:x+(alongX?length:width)/2,minZ:z-(alongX?width:length)/2,maxZ:z+(alongX?width:length)/2,y});
+  const railMat=new THREE.MeshStandardMaterial({color:0x25282d,roughness:0.88,metalness:0.14});
+  const railOffset=(alongX?width:length)/2+0.35;
+  for(const side of [-1,1]){
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(alongX?length:0.22,1.25,alongX?0.22:length),railMat);rail.position.set(x+(alongX?0:side*railOffset),y+0.62,z+(alongX?side*railOffset:0));rail.castShadow=true;scene.add(rail);envObjects.push({mesh:rail});
+    for(let i=0;i<=Math.floor(length/6);i++){
+      const t=-length/2+i*6,post=new THREE.Mesh(new THREE.BoxGeometry(alongX?0.22:0.22,1.35,alongX?0.22:0.22),railMat);post.position.set(x+(alongX?t:side*railOffset),y+0.67,z+(alongX?side*railOffset:t));post.castShadow=true;scene.add(post);envObjects.push({mesh:post});
+    }
+  }
+}
+function addGothicChasmArch(x,y,z,span,height,depth,material,axis='x'){
+  const curve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-span/2,0,0),new THREE.Vector3(-span*0.43,height*0.58,0),new THREE.Vector3(-span*0.22,height*0.94,0),
+    new THREE.Vector3(0,height,0),new THREE.Vector3(span*0.22,height*0.94,0),new THREE.Vector3(span*0.43,height*0.58,0),new THREE.Vector3(span/2,0,0)
+  ]);
+  const arch=new THREE.Mesh(new THREE.TubeGeometry(curve,28,0.72,8,false),material);arch.position.set(x,y,z);arch.rotation.y=axis==='x'?0:Math.PI/2;arch.castShadow=true;arch.receiveShadow=true;scene.add(arch);envObjects.push({mesh:arch});
+  const pillarGeo=new THREE.BoxGeometry(1.65,height,1.65);
+  for(const side of [-1,1]){const pillar=new THREE.Mesh(pillarGeo,material);pillar.position.set(x+(axis==='x'?side*span/2:0),y-height/2,z+(axis==='x'?0:side*span/2));pillar.castShadow=true;pillar.receiveShadow=true;scene.add(pillar);envObjects.push({mesh:pillar});}
+}
+function buildGothicChasmRoute(ox,oz){
+  const layout=getGothicChasmLayout(ox,oz),{centerX,centerZ}=layout;
+  const surfaces=createSurfaceTextures(),stone=new THREE.MeshStandardMaterial({color:0x101820,map:surfaces.wall,normalMap:surfaces.wallNormal,normalScale:new THREE.Vector2(0.72,0.72),roughnessMap:surfaces.wallRoughness,roughness:0.99,metalness:0.03}),darkStone=new THREE.MeshStandardMaterial({color:0x080d12,roughness:0.99,metalness:0.02});
+  const abyss=new THREE.Mesh(new THREE.BoxGeometry(76,0.4,52),new THREE.MeshBasicMaterial({color:0x05090e,transparent:true,opacity:0.86,depthWrite:false}));abyss.position.set(centerX,-24,centerZ);scene.add(abyss);envObjects.push({mesh:abyss});
+  const hallFloor=new THREE.Mesh(new THREE.BoxGeometry(58,0.28,58),new THREE.MeshStandardMaterial({color:0x202a31,map:surfaces.floor,normalMap:surfaces.floorNormal,normalScale:new THREE.Vector2(0.5,0.5),roughnessMap:surfaces.floorRoughness,roughness:0.92,metalness:0.08}));
+  hallFloor.position.set(centerX,-0.14,layout.lowerZ);hallFloor.receiveShadow=true;scene.add(hallFloor);envObjects.push({mesh:hallFloor});
+  mountainWalkableSurfaces.push({minX:centerX-28,maxX:centerX+28,minZ:layout.lowerZ-28,maxZ:layout.lowerZ+28,y:0});
+  addGothicChasmDeck(centerX,layout.lowerZ,0,150,7,'x',stone);
+  addGothicChasmDeck(centerX,layout.upperZ,FLOOR_HEIGHT,138,6.2,'x',stone);
+  addGothicChasmDeck(centerX-26,centerZ,FLOOR_HEIGHT,46,5.4,'z',stone);
+  // The lower level is an enclosed cathedral hall; its vault is supplied by the Blender slice.
+  // Keep only two distant skyline arches outside the hall sightline.
+  addGothicChasmArch(centerX-55,-2,centerZ+38,29,20,6,stone,'x');
+  addGothicChasmArch(centerX+48,-3,centerZ-42,32,23,6,stone,'z');
+  for(const x of [centerX-58,centerX-34,centerX+34,centerX+58]){
+    const pillar=new THREE.Mesh(new THREE.BoxGeometry(3.2,29,3.2),darkStone);pillar.position.set(x,-6,centerZ+8);pillar.castShadow=true;pillar.receiveShadow=true;scene.add(pillar);envObjects.push({mesh:pillar});
+  }
+  addWalkableStaircase(centerX-49,layout.lowerZ-1,0,FLOOR_HEIGHT,27,5.2,'stone');
+  addWalkableStaircase(centerX+42,layout.lowerZ+18,0,FLOOR_HEIGHT,24,4.6,'stone');
+  const lanternMat=new THREE.MeshStandardMaterial({color:0x5b4028,roughness:0.82}),flameMat=new THREE.MeshBasicMaterial({color:0xffad55,toneMapped:false});
+  [[centerX-63,layout.lowerZ,0xff994d],[centerX-15,layout.lowerZ,0xffb05e],[centerX+35,layout.upperZ,0xff9a4d],[centerX+61,layout.upperZ,0xffb66a]].forEach(([x,z,color])=>{
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.24,2.2,0.24),lanternMat);post.position.set(x,1.1,z);scene.add(post);envObjects.push({mesh:post});
+    const flame=new THREE.Mesh(new THREE.SphereGeometry(0.22,8,6),flameMat);flame.position.set(x,2.35,z);scene.add(flame);envObjects.push({mesh:flame});
+    const light=new THREE.PointLight(color,1.15,17,2);light.position.set(x,2.3,z);registerGraphicsPointLight(light);scene.add(light);envObjects.push({mesh:light});
+  });
+  const hallLamp=new THREE.Group(),lampPost=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.18,4.2,8),lanternMat);
+  lampPost.position.set(centerX+7,2.1,layout.lowerZ+9);hallLamp.add(lampPost);
+  const lampFlame=new THREE.Mesh(new THREE.SphereGeometry(0.28,10,8),flameMat);lampFlame.position.set(centerX+7,4.35,layout.lowerZ+9);hallLamp.add(lampFlame);
+  const hallLight=new THREE.PointLight(0xffae62,2.1,24,2);hallLight.position.copy(lampFlame.position);registerGraphicsPointLight(hallLight);hallLamp.add(hallLight);
+  scene.add(hallLamp);envObjects.push({mesh:hallLamp});
+  const windowFill=new THREE.PointLight(0x6c9bd0,0.82,30,2);windowFill.position.set(centerX,7,layout.lowerZ-25);registerGraphicsPointLight(windowFill);scene.add(windowFill);envObjects.push({mesh:windowFill});
+  const fog=new THREE.Mesh(new THREE.PlaneGeometry(110,34),new THREE.MeshBasicMaterial({color:0x8198a8,transparent:true,opacity:0.075,depthWrite:false,side:THREE.DoubleSide}));fog.rotation.x=Math.PI/2;fog.position.set(centerX,-9,centerZ);scene.add(fog);envObjects.push({mesh:fog});
+  mountainFallZones.push({minX:layout.void.x0,maxX:layout.void.x1,minZ:layout.void.z0,maxZ:layout.void.z1,minY:-1,maxY:FLOOR_HEIGHT+2,damage:25});
+  return layout;
 }
 
 function buildCampaignTargets(locationIndex,ox,oz){
@@ -1254,6 +1321,7 @@ function damageBreakableBarrier(attack){
 
 function createDistantHorizon(locationIndex){
   if(!scene) return;
+  if(locationIndex===2) return;
   if(!horizonAssets){
     horizonAssets = {
       house:new THREE.MeshStandardMaterial({color:0x19171b,roughness:1,metalness:0}),

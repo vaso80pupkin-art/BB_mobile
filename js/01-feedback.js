@@ -347,6 +347,7 @@ function drawStagePlan(){
   for(let x=35;x<width;x+=45){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
   for(let y=25;y<height;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
   ctx.font='bold 13px Arial,sans-serif';ctx.fillStyle='#8ea4ad';ctx.textAlign='left';ctx.fillText('ВЕРХНИЙ ЯРУС · +17',32,34);ctx.fillText('НИЖНИЙ ЯРУС · 0',32,height-24);
+  if(currentLocation===2){ctx.fillStyle='#9eb5bb';ctx.fillText('СРЕДНЯЯ ГАЛЕРЕЯ · +8 (визуальный подъярус)',32,height/2+4);ctx.strokeStyle='rgba(145,175,184,.34)';ctx.lineWidth=2;ctx.setLineDash([12,8]);ctx.beginPath();ctx.moveTo(28,height/2);ctx.lineTo(width-28,height/2);ctx.stroke();ctx.setLineDash([]);}
   const drawEdge=(a,b,floor,index)=>{
     const p1=getStagePlanNodePosition(a,floor,canvas),p2=getStagePlanNodePosition(b,floor,canvas),primary=index<4;
     ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle=primary?'#d7bd78':'#6da3b8';ctx.lineWidth=primary?7:3;ctx.lineCap='round';ctx.setLineDash(primary?[]:[9,7]);ctx.stroke();ctx.setLineDash([]);
@@ -373,7 +374,7 @@ function openStagePlan(){
   stagePlanOpenedFromPlaying=gameMode===GameMode.PLAYING;
   if(stagePlanOpenedFromPlaying)gameMode=GameMode.PAUSED;
   $('stagePlanTitle').textContent=(STAGE_ROUTE_PLANS[currentLocation]||STAGE_ROUTE_PLANS[0]).title;
-  $('stagePlanSubtitle').textContent=`Этаж ${currentFloorIndex+1}/2 · ветки, вертикальные связи и обязательные гейты`;
+  $('stagePlanSubtitle').textContent=currentLocation===2?'2 игровых этажа · 3 визуальных яруса · мосты, лестницы, цепь и ветвления':`Этаж ${currentFloorIndex+1}/2 · ветки, вертикальные связи и обязательные гейты`;
   drawStagePlan();overlay.classList.add('show');overlay.setAttribute('aria-hidden','false');
 }
 function closeStagePlan(){

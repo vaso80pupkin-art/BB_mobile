@@ -144,10 +144,10 @@ const STAGE_ROUTE_PLANS = [
   {
     title:'Горный перевал',
     floors:[
-      {edges:[[0,1],[1,2],[2,3],[3,4],[0,5],[2,7],[4,9],[5,6],[6,7]],labels:{0:'фонарь',2:'развилка',5:'долина',6:'колодец',7:'пещеры',9:'ворота замка'}},
-      {edges:[[0,1],[1,6],[3,8],[6,7],[7,8],[8,9]],labels:{1:'висячий мост',3:'смотровая',7:'винтовая лестница',8:'склон',9:'цепь'}}
+      {edges:[[0,1],[1,2],[2,3],[3,4],[0,5],[2,7],[4,9],[5,6],[6,7]],labels:{0:'нижний вход',2:'нижняя галерея',5:'фонарь',6:'цепной подъём',7:'нижняя развилка',9:'ворота'}},
+      {edges:[[0,1],[1,6],[3,8],[6,7],[7,8],[8,9]],labels:{1:'верхний виадук',3:'башня',7:'лестница',8:'поперечный мост',9:'выход к замку'}}
     ],
-    landmarks:[['долина',5,0],['колодец',6,0],['пещера',7,0],['мост',1,1],['смотровая',3,1],['ворота',9,1]]
+    landmarks:[['нижний мост',0,0],['цепь / лифт',6,0],['средняя галерея',2,0],['верхний виадук',1,1],['башни',3,1],['ворота',9,1]]
   },
   {
     title:'Паучий замок',
@@ -188,7 +188,7 @@ const BASE_FLOOR_COLOR   = 0x161420;
 const LOCATION_MOODS = [
   {sky:0x0a0d15, fog:0.029, brightness:0.5, lighting:{ambient:0x223344,hemiSky:0x334455,hemiGround:0x0a0510,moon:0x7088bb,rim:0x9aa9c4,fill:0x445577}},
   {sky:0x17120f, fog:0.025, lighting:{ambient:0x5c5148,hemiSky:0x9b8c7d,hemiGround:0x211613,moon:0x9aabc5,rim:0xc29a72,fill:0x695447}},
-  {sky:0x111b21, fog:0.028, lighting:{ambient:0x4f6c78,hemiSky:0xa2c1cf,hemiGround:0x101b22,moon:0x83a9c4,rim:0xb6d2dc,fill:0x496a7a}},
+  {sky:0x0b121a, fog:0.024, brightness:0.38, lighting:{ambient:0x2d4350,hemiSky:0x6f8da1,hemiGround:0x080d13,moon:0x7898bb,rim:0x8eaabd,fill:0x304b60}},
   {sky:0x130e1e, fog:0.030, lighting:{ambient:0x5d4c6b,hemiSky:0xa08db8,hemiGround:0x180f22,moon:0x9685b5,rim:0xc5a7d2,fill:0x584271}}
 ];
 let currentSkyColor = BASE_SKY_LANDSCAPE;

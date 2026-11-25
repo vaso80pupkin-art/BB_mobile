@@ -212,6 +212,19 @@ function buildMountainVisualAccents(ox,oz){
   if(group.children.length){scene.add(group);envObjects.push({mesh:group});}
 }
 
+function buildGothicChasmAtmosphere(ox,oz){
+  const group=new THREE.Group(),layout=getGothicChasmLayout(ox,oz),tex=createSurfaceTextures(),stone=new THREE.MeshStandardMaterial({color:0x202b34,map:tex.wall,roughness:0.98,metalness:0.02}),windowMat=new THREE.MeshBasicMaterial({color:0x8ea8bd,transparent:true,opacity:0.42,toneMapped:false});
+  [[-78,layout.centerZ+22,12,28],[-42,layout.centerZ+30,9,22],[46,layout.centerZ+28,11,30],[78,layout.centerZ+20,8,24]].forEach(([x,z,width,height],index)=>{
+    const tower=new THREE.Mesh(new THREE.BoxGeometry(width,height,9),stone);tower.position.set(x,height/2-5,z);tower.castShadow=true;tower.receiveShadow=true;group.add(tower);
+    const roof=new THREE.Mesh(new THREE.ConeGeometry(width*0.72,9,4),stone);roof.position.set(x,height+1-5,z);roof.rotation.y=Math.PI/4;roof.castShadow=true;group.add(roof);
+    for(let row=0;row<3;row++){const win=new THREE.Mesh(new THREE.PlaneGeometry(1.2,2.8),windowMat);win.position.set(x+(index%2?width/2+0.02:-width/2-0.02),height*0.35+row*4-5,z-3.9);win.rotation.y=index%2?Math.PI/2:-Math.PI/2;group.add(win);}
+  });
+  const archMaterial=new THREE.MeshStandardMaterial({color:0x101820,roughness:0.99,metalness:0.01});
+  // The playable hall is an enclosed Blender slice; keep the skyline arches outside its sightline.
+  [layout.centerZ+52,layout.centerZ-58].forEach(z=>{const span=STAGE_WORLD_WIDTH*0.62,curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-span/2,0,0),new THREE.Vector3(-span*0.38,10,0),new THREE.Vector3(0,17,0),new THREE.Vector3(span*0.38,10,0),new THREE.Vector3(span/2,0,0)]),arch=new THREE.Mesh(new THREE.TubeGeometry(curve,28,0.55,7,false),archMaterial);arch.position.set(layout.centerX,4,z);arch.castShadow=true;group.add(arch);});
+  scene.add(group);envObjects.push({mesh:group});
+}
+
 function appendCastleWeb(positions,face,width,height){
   const world=(lx,ly)=>[face.x+lx*Math.cos(face.yaw)+0.10*Math.sin(face.yaw),face.floorY+0.35+ly,face.z-lx*Math.sin(face.yaw)+0.10*Math.cos(face.yaw)];
   const rays=7,rings=4,maxRadius=Math.min(width,height);
@@ -561,8 +574,8 @@ function buildMountainCanyonVisuals(ox,oz){
 
 function buildRegionalVisuals(locationIndex,floorRooms,ox,oz){
   if(!scene||!floorRooms)return;
+  buildCathedralInteriorVisuals(floorRooms);
   if(locationIndex===0)buildYharnamStreetVisuals(floorRooms);
-  else if(locationIndex===1)buildCathedralInteriorVisuals(floorRooms);
-  else if(locationIndex===2){buildMountainVisualAccents(ox,oz);buildMountainCanyonVisuals(ox,oz);}
+  else if(locationIndex===2)buildGothicChasmAtmosphere(ox,oz);
   else if(locationIndex===3)buildNightmareCastleVisuals(floorRooms);
 }
