@@ -271,7 +271,11 @@ function checkWall(nx,nz,radius=0.55,entityY=hunter?hunter.position.y:0,bodyHeig
   candidates.clear();
   return false;
 }
-function die(){
+function die(options={}){
+  const deathLocation=currentLocation;
+  const checkpoint=options.respawnAtCheckpoint&&player.respawnPoint&&
+    (player.respawnPoint.loc===undefined||player.respawnPoint.loc===currentLocation)
+    ?{...player.respawnPoint}:null;
   player.isDead = true;
   gameMode = GameMode.DEAD;
   player.deaths++;
@@ -279,7 +283,10 @@ function die(){
   sfx('roar');
   $('deathText').classList.add('show');
   $('deathOverlay').classList.add('show');
-  if(lostEchoes > 0) createBloodStain(hunter.position.x,hunter.position.z,lostEchoes,currentLocation,hunter.position.y);
+  if(lostEchoes > 0){
+    const stain=options.bloodStainPosition;
+    createBloodStain(stain?stain.x:hunter.position.x,stain?stain.z:hunter.position.z,lostEchoes,currentLocation,stain?stain.y:hunter.position.y);
+  }
   setTimeout(()=>{
     player.hp = player.maxHp;
     player.stamina = player.maxStamina;
@@ -292,6 +299,18 @@ function die(){
     $('deathText').classList.remove('show');
     $('deathOverlay').classList.remove('show');
     player.isDead = false;
+    if(options.respawnAtCheckpoint&&checkpoint&&currentLocation===deathLocation&&hunter){
+      hunter.position.set(checkpoint.x,checkpoint.y||0,checkpoint.z);
+      hunter.rotation.x=0;hunter.rotation.y=Math.PI;
+      currentFloorIndex=Number.isInteger(checkpoint.floor)?checkpoint.floor:0;
+      cameraAngle=0;
+      if(camera){camera.position.set(checkpoint.x,checkpoint.y+cameraHeight,checkpoint.z+cameraDistance);camera.lookAt(checkpoint.x,checkpoint.y+Math.max(1.5,hunterVisualHeight*0.55),checkpoint.z);}
+      player.isAttacking=false;player.isDodging=false;player.isCharging=false;player.invincible=false;player.currentAttack=null;
+      player.attackBuffer=false;player.dodgeBuffer=false;player.lockedTarget=null;
+      if(typeof moveData.cancel==='function')moveData.cancel();else{moveData.active=false;moveData.x=0;moveData.y=0;}
+      gameMode=GameMode.PLAYING;lastRoomNotice='';updateStageLocationLabel(true);updateHUD();SaveSystem.save();
+      return;
+    }
     loadDream();
     updateHUD();
     SaveSystem.save();

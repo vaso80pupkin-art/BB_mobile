@@ -525,6 +525,7 @@ function buildStageFloor(locationIndex,floorIndex,ox,oz){
         const mid=Math.floor(mazeSize/2);
         for(let y=mid-2;y<=mid+2;y++) for(let x=mid-2;x<=mid+2;x++) grid[y][x]=0;
         for(let y=mid-1;y<=mid+1;y++) for(let x=0;x<=mid;x++) grid[y][x]=0;
+        if(locationIndex===1)for(let y=mid;y<mazeSize;y++)grid[y][mid]=0;
       }
     }
     const roomX=ox+col*ROOM_WORLD_SIZE,roomZ=oz+row*ROOM_WORLD_SIZE;
@@ -937,6 +938,10 @@ function getFloorHeightAt(x,z,currentY=0,previousZ=z){
   for(const elevator of stageElevators){
     if(Math.abs(x-elevator.x)<=2.35&&Math.abs(z-elevator.z)<=2.35&&Math.abs(currentY-(elevator.currentY+0.4))<2.8) return elevator.currentY+0.4;
   }
+  if(currentLocation===1&&typeof getCathedralExteriorFloorAt==='function'){
+    const exteriorFloor=getCathedralExteriorFloorAt(x,z,currentY);
+    if(exteriorFloor!==null)return exteriorFloor;
+  }
   const inLowerVoid=currentLocation===2&&mountainFloorVoids.some(hole=>x>=hole.x0&&x<=hole.x1&&z>=hole.z0&&z<=hole.z1);
   const stairCandidates=stairs.filter(stair=>{
     const side=Math.abs(x-stair.x),along=z-stair.z;
@@ -965,6 +970,16 @@ function getFloorHeightAt(x,z,currentY=0,previousZ=z){
 
 function updateHunterFloor(previousZ){
   if(!hunter) return;
+  if(currentLocation===1&&!stairFallAnimation&&typeof getCathedralFatalFallAt==='function'){
+    const fall=getCathedralFatalFallAt(hunter.position.x,hunter.position.z,hunter.position.y);
+    if(fall){
+      stairFallAnimation={startY:hunter.position.y,targetY:fall.targetY,elapsed:0,duration:1,fatalFall:true,bloodStainPosition:fall.bloodStainPosition};
+      player.isAttacking=false;player.isDodging=false;player.currentAttack=null;player.attackBuffer=false;player.dodgeBuffer=false;player.invincible=false;
+      if(typeof cancelActiveAttackCharge==='function')cancelActiveAttackCharge();else player.isCharging=false;
+      if(typeof moveData.cancel==='function')moveData.cancel();else{moveData.active=false;moveData.x=0;moveData.y=0;}
+      player.sprintTime=0;return;
+    }
+  }
   if(currentLocation===2){
     const fall=mountainFallZones.find(zone=>hunter.position.x>=zone.minX&&hunter.position.x<=zone.maxX&&hunter.position.z>=zone.minZ&&hunter.position.z<=zone.maxZ&&
       (!zone.centerX||Math.hypot(hunter.position.x-zone.centerX,hunter.position.z-zone.centerZ)>=zone.minRadius)&&hunter.position.y>=zone.minY&&hunter.position.y<=zone.maxY);
@@ -1014,6 +1029,7 @@ function updateStairFallAnimation(dt){
   if(t<1) return true;
   hunter.position.y=fall.targetY;
   stairFallAnimation=null;
+  if(fall.fatalFall){die({respawnAtCheckpoint:true,bloodStainPosition:fall.bloodStainPosition});return true;}
   if(fall.damageOnLanding){
     player.hp=Math.max(0,player.hp-10);
     player.screenShake=Math.max(player.screenShake,0.2);
@@ -1665,6 +1681,7 @@ function clearWorld(){
   enemies = []; wallMeshes = []; wallColliders=[]; floorMeshes=[]; stairs=[]; chests = []; lanterns = []; envObjects = [];
   bloodParticles=[];dustMotes = []; ambientCreatures=[]; attackTrails = []; parryIndicators = []; toolProjectiles = [];
   mountainWalkableSurfaces=[];mountainFallZones=[];mountainFloorVoids=[];
+  if(typeof cathedralExteriorBounds!=='undefined'){cathedralExteriorBounds=null;cathedralExteriorSurfaces=[];cathedralExteriorRamps=[];cathedralFatalFallZones=[];}
   doll = null; workshop = null; waystone = null;
   nearbyLantern = null; nearbyDoll = false; nearbyWorldInteractable=null;
   shortcutGates=[]; stageElevators=[]; worldInteractables=[]; chainTarget=null; breakableBarriers=[];

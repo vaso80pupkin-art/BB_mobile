@@ -529,15 +529,18 @@ function loadLocation(idx){
   const elevatorX=ox+3*ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
   const elevatorZ=oz+ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
   stairHoles.push({x0:elevatorX-3.25,x1:elevatorX+3.25,z0:elevatorZ-3.25,z1:elevatorZ+3.25});
-  const lowerFloorOpenings=idx===2?[mountainRoute.wellOpening,mountainRoute.spiralOpening,gothicLayout.void]:[];
-  mountainFloorVoids=lowerFloorOpenings;
-  const upperFloorHoles=stairHoles.concat(mountainRoute?mountainRoute.fallOpenings:[],idx===2?[{x0:gothicLayout.void.x0-4,x1:gothicLayout.void.x1+4,z0:gothicLayout.void.z0-4,z1:gothicLayout.void.z1+4}]:[]);
+  const cathedralExitX=ox+4*ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2,cathedralExitZ=oz+STAGE_WORLD_DEPTH/2;
+  const cathedralExitVoid=idx===1?{x0:ox+4*ROOM_WORLD_SIZE-10,x1:ox+5*ROOM_WORLD_SIZE+10,z0:cathedralExitZ,z1:cathedralExitZ+10.1}:null;
+  const exteriorVoids=cathedralExitVoid?[cathedralExitVoid]:[];
+  const lowerFloorOpenings=idx===2?[mountainRoute.wellOpening,mountainRoute.spiralOpening,gothicLayout.void]:exteriorVoids;
+  mountainFloorVoids=idx===2?lowerFloorOpenings:[];
+  const upperFloorHoles=stairHoles.concat(mountainRoute?mountainRoute.fallOpenings:[],idx===2?[{x0:gothicLayout.void.x0-4,x1:gothicLayout.void.x1+4,z0:gothicLayout.void.z0-4,z1:gothicLayout.void.z1+4}]:[],exteriorVoids);
   const floorMargin=10;
   const floorSegmentSpacing=idx===2?6:3;
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0],lowerFloorOpenings,false,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1],upperFloorHoles,false,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]-1.5,upperFloorHoles,true,floorSegmentSpacing);
-  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles,true,floorSegmentSpacing);
+  createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles.concat(exteriorVoids),true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true,floorSegmentSpacing);
   applyUnifiedCathedralSurfaces();
   stairSpecs.forEach(spec=>{
@@ -568,6 +571,7 @@ function loadLocation(idx){
   }
   buildRegionalVisuals(idx,floorRooms,ox,oz);
   if(idx===1) loadCathedralGroundSlice(floorRooms[0]&&floorRooms[0][0]);
+  if(idx===1) buildCathedralExteriorRoute(cathedralExitX,cathedralExitZ);
   createDistantHorizon(idx);
   rebuildWallCollisionGrid();
   spawnDustMotes(60);
