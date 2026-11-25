@@ -553,6 +553,7 @@ function loop(){
   updateEnemies(dt,rawTime);
   updateLockOnButton();
   updateAmbientCreatures(rawTime);
+  updateCathedralGroundTierAtmosphere(rawTime);
   updateStageMechanics(dt);
   checkLanternProximity();
   checkWorldInteractableProximity();

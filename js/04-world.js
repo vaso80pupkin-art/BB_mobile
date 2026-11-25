@@ -1507,6 +1507,7 @@ function disposeWorldObjectResources(root,shared,disposed){
 function clearWorld(){
   if(!scene) return;
   if(typeof clearGraphicsPointLights==='function')clearGraphicsPointLights();
+  if(typeof resetCathedralGroundTierAtmosphere==='function')resetCathedralGroundTierAtmosphere();
   altarFireRefs.length=0;altarEmberRefs.length=0;altarFireLight=null;
   if(worldTutorialTimers) worldTutorialTimers.forEach(clearTimeout);
   worldTutorialTimers=[];

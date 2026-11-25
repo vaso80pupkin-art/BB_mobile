@@ -174,6 +174,7 @@ function buildCathedralInteriorVisuals(floorRooms){
     });
     [seats,legs,backs].forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=true;group.add(mesh);});
   }
+  addCathedralGroundTierVisuals(group,(floorRooms[0]||[]).filter(room=>room.floorIndex===0));
   if(group.children.length){scene.add(group);envObjects.push({mesh:group});}
 }
 
@@ -289,6 +290,230 @@ function buildNightmareCastleVisuals(floorRooms){
   }
   if(group.children.length){scene.add(group);envObjects.push({mesh:group});}
 }
+
+let cathedralGroundTierAtmosphere=null;
+let cathedralGroundFogTexture=null;
+
+function getCathedralGroundFogTexture(){
+  if(cathedralGroundFogTexture)return cathedralGroundFogTexture;
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
+  const ctx=canvas.getContext('2d');
+  const gradient=ctx.createRadialGradient(128,128,8,128,128,126);
+  gradient.addColorStop(0,'rgba(226,238,246,0.23)');
+  gradient.addColorStop(0.28,'rgba(191,211,226,0.16)');
+  gradient.addColorStop(0.68,'rgba(151,177,198,0.055)');
+  gradient.addColorStop(1,'rgba(120,151,179,0)');
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,256,256);
+  let seed=0x51a7f09;
+  const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  for(let i=0;i<420;i++){
+    const x=random()*256,y=random()*256,r=2+random()*13;
+    ctx.fillStyle=`rgba(205,222,235,${0.006+random()*0.018})`;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  }
+  cathedralGroundFogTexture=new THREE.CanvasTexture(canvas);
+  if(THREE.sRGBEncoding!==undefined)cathedralGroundFogTexture.encoding=THREE.sRGBEncoding;
+  return cathedralGroundFogTexture;
+}
+
+function isCathedralWallDetailClear(face){
+  const nearStair=Array.isArray(stairs)&&stairs.some(stair=>
+    Math.abs(face.floorY-stair.lowerY)<0.1&&
+    Math.abs(face.x-stair.x)<stair.width/2+2.0&&
+    face.z>=stair.z-2.0&&face.z<=stair.z+stair.run+2.0
+  );
+  if(nearStair)return false;
+  return true;
+}
+
+function addCathedralGroundTierVisuals(group,groundRooms){
+  if(!group||!groundRooms||!groundRooms.length)return;
+  const surfaces=createSurfaceTextures(),seed=0xc47ed2;
+  const random=seededRandom(seed);
+  const entrance=groundRooms.find(room=>room.roomIndex===0)||groundRooms[0];
+  const centerX=entrance.roomX+cellSize*3.5,centerZ=entrance.roomZ+cellSize*3.5;
+  const floorY=entrance.floorY;
+
+  const floorMosaic=new THREE.Mesh(new THREE.CircleGeometry(5.8,48),new THREE.MeshStandardMaterial({
+    color:0x74808d,map:surfaces.floor,normalMap:surfaces.floorNormal,normalScale:new THREE.Vector2(0.42,0.42),
+    roughnessMap:surfaces.floorRoughness,roughness:0.52,metalness:0.08
+  }));
+  floorMosaic.rotation.x=-Math.PI/2;floorMosaic.position.set(centerX,floorY+0.058,centerZ);group.add(floorMosaic);
+  const mosaicRing=new THREE.Mesh(new THREE.RingGeometry(4.7,4.84,56),new THREE.MeshStandardMaterial({color:0x665842,metalness:0.48,roughness:0.52,side:THREE.DoubleSide}));
+  mosaicRing.rotation.x=-Math.PI/2;mosaicRing.position.set(centerX,floorY+0.079,centerZ);group.add(mosaicRing);
+  const roseGeometry=new THREE.BoxGeometry(0.085,0.026,3.25),roseMaterial=new THREE.MeshStandardMaterial({color:0x70624e,metalness:0.56,roughness:0.48});
+  const rose=new THREE.InstancedMesh(roseGeometry,roseMaterial,8),roseTransform=new THREE.Object3D();
+  for(let i=0;i<8;i++){
+    roseTransform.position.set(centerX,floorY+0.083,centerZ);roseTransform.rotation.set(0,i*Math.PI/4,0);
+    roseTransform.updateMatrix();rose.setMatrixAt(i,roseTransform.matrix);
+  }
+  rose.instanceMatrix.needsUpdate=true;rose.castShadow=false;rose.receiveShadow=false;group.add(rose);
+
+  const allFaces=collectRegionalWallFaces(groundRooms,seed).filter(face=>{
+    const nearSpawn=face.roomIndex===0&&Math.hypot(face.x-centerX,face.z-centerZ)<8.5;
+    return !nearSpawn&&isCathedralWallDetailClear(face);
+  });
+  const stride=Math.max(3,Math.floor(allFaces.length/19)),detailFaces=[];
+  for(let i=0;i<allFaces.length&&detailFaces.length<22;i+=stride)detailFaces.push(allFaces[i]);
+  if(detailFaces.length){
+    const coolStone=new THREE.MeshStandardMaterial({color:0x87919d,map:surfaces.wall,normalMap:surfaces.wallNormal,
+      normalScale:new THREE.Vector2(0.68,0.68),roughnessMap:surfaces.wallRoughness,roughness:0.9,metalness:0.035});
+    const shaft=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.3,0.4,1,9),coolStone,detailFaces.length);
+    const plinth=new THREE.InstancedMesh(new THREE.BoxGeometry(1.02,0.38,1.02),coolStone,detailFaces.length);
+    const capital=new THREE.InstancedMesh(new THREE.BoxGeometry(1.12,0.34,1.12),coolStone,detailFaces.length);
+    const transform=new THREE.Object3D();
+    detailFaces.forEach((face,index)=>{
+      const x=face.x+face.nx*0.48,z=face.z+face.nz*0.48;
+      transform.position.set(x,face.floorY+3.43,z);transform.rotation.set(0,face.yaw,0);transform.scale.set(1,6.48,1);transform.updateMatrix();shaft.setMatrixAt(index,transform.matrix);
+      transform.position.set(x,face.floorY+0.19,z);transform.scale.set(1,1,1);transform.updateMatrix();plinth.setMatrixAt(index,transform.matrix);
+      transform.position.set(x,face.floorY+6.72,z);transform.updateMatrix();capital.setMatrixAt(index,transform.matrix);
+    });
+    [shaft,plinth,capital].forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=true;group.add(mesh);});
+
+    const rubbleFaces=detailFaces.filter((_,index)=>index%2===0).slice(0,12);
+    if(rubbleFaces.length){
+      const rubbleMaterial=new THREE.MeshStandardMaterial({color:0x555c64,map:surfaces.wall,normalMap:surfaces.wallNormal,
+        normalScale:new THREE.Vector2(0.55,0.55),roughnessMap:surfaces.wallRoughness,roughness:0.97});
+      const rubble=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.72,0),rubbleMaterial,rubbleFaces.length);
+      rubbleFaces.forEach((face,index)=>{
+        transform.position.set(face.x+face.nx*1.05,floorY+0.2,face.z+face.nz*1.05);
+        transform.rotation.set(random()*0.38,random()*Math.PI*2,random()*0.34);
+        transform.scale.set(0.56+random()*0.28,0.2+random()*0.22,0.4+random()*0.34);transform.updateMatrix();rubble.setMatrixAt(index,transform.matrix);
+      });
+      rubble.instanceMatrix.needsUpdate=true;rubble.castShadow=false;rubble.receiveShadow=true;group.add(rubble);
+    }
+  }
+
+  const wetSpots=[];
+  const wetRandom=seededRandom(seed^0x3179ac);
+  groundRooms.forEach(room=>{
+    for(let row=1;row<mazeSize-1;row++)for(let col=1;col<mazeSize-1;col++){
+      if(room.grid[row][col]!==0||wetRandom()>0.12)continue;
+      const x=room.roomX+(col+0.5)*cellSize,z=room.roomZ+(row+0.5)*cellSize;
+      if(room.roomIndex===0&&Math.hypot(x-centerX,z-centerZ)<8.0)continue;
+      wetSpots.push({x,z,y:room.floorY+0.044,sx:0.8+wetRandom()*1.25,sz:0.38+wetRandom()*0.48,angle:wetRandom()*Math.PI});
+    }
+  });
+  if(wetSpots.length){
+    const puddles=new THREE.InstancedMesh(new THREE.CircleGeometry(1,20),new THREE.MeshStandardMaterial({
+      color:0x526a79,emissive:0x0d151b,emissiveIntensity:0.16,metalness:0.28,roughness:0.13,
+      transparent:true,opacity:0.42,side:THREE.DoubleSide,depthWrite:false
+    }),wetSpots.length);
+    const transform=new THREE.Object3D();
+    wetSpots.forEach((spot,index)=>{
+      transform.position.set(spot.x,spot.y,spot.z);transform.rotation.set(-Math.PI/2,0,spot.angle);
+      transform.scale.set(spot.sx,spot.sz,1);transform.updateMatrix();puddles.setMatrixAt(index,transform.matrix);
+    });
+    puddles.instanceMatrix.needsUpdate=true;puddles.castShadow=false;puddles.receiveShadow=false;group.add(puddles);
+  }
+
+  const urnFaces=[];
+  groundRooms.filter(room=>room.roomIndex!==0&&room.roomIndex%2===1).forEach(room=>{
+    const candidates=collectRegionalWallFaces([room],seed+room.roomIndex*31).filter(isCathedralWallDetailClear);
+    if(candidates.length&&urnFaces.length<5)urnFaces.push(candidates[0]);
+  });
+  if(urnFaces.length){
+    const brassStone=new THREE.MeshStandardMaterial({color:0x59544d,map:surfaces.wall,normalMap:surfaces.wallNormal,
+      normalScale:new THREE.Vector2(0.42,0.42),roughnessMap:surfaces.wallRoughness,roughness:0.91,metalness:0.06});
+    const pedestal=new THREE.InstancedMesh(new THREE.BoxGeometry(0.72,0.42,0.72),brassStone,urnFaces.length);
+    const urnProfile=[[0,0],[0.28,0],[0.42,0.18],[0.38,0.47],[0.52,0.82],[0.44,1.16],[0.28,1.42],[0,1.5]];
+    const urnGeometry=new THREE.LatheGeometry(urnProfile.map(([r,y])=>new THREE.Vector2(r,y)),12);
+    const urns=new THREE.InstancedMesh(urnGeometry,brassStone,urnFaces.length),transform=new THREE.Object3D();
+    urnFaces.forEach((face,index)=>{
+      const x=face.x+face.nx*0.96,z=face.z+face.nz*0.96;
+      transform.position.set(x,face.floorY+0.21,z);transform.rotation.set(0,face.yaw,0);transform.scale.set(1,1,1);transform.updateMatrix();pedestal.setMatrixAt(index,transform.matrix);
+      transform.position.set(x,face.floorY+0.42,z);transform.updateMatrix();urns.setMatrixAt(index,transform.matrix);
+    });
+    [pedestal,urns].forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=true;group.add(mesh);});
+  }
+
+  const lampFaces=[];
+  groundRooms.filter(room=>room.roomIndex%2===0).forEach(room=>{
+    const candidates=collectRegionalWallFaces([room],seed+room.roomIndex*47).filter(face=>{
+      if(!isCathedralWallDetailClear(face))return false;
+      return room.roomIndex!==0||Math.hypot(face.x-centerX,face.z-centerZ)>10.0;
+    });
+    if(candidates.length&&lampFaces.length<5)lampFaces.push(candidates[0]);
+  });
+  const lights=[],flameBases=[];
+  if(lampFaces.length){
+    const bronze=new THREE.MeshStandardMaterial({color:0x55432e,metalness:0.66,roughness:0.42});
+    const bracket=new THREE.InstancedMesh(new THREE.BoxGeometry(0.68,0.13,0.16),bronze,lampFaces.length);
+    const stem=new THREE.InstancedMesh(new THREE.BoxGeometry(0.13,0.52,0.13),bronze,lampFaces.length);
+    const flameMaterial=new THREE.MeshBasicMaterial({color:0xffa14c,toneMapped:false});
+    const flames=new THREE.InstancedMesh(new THREE.SphereGeometry(0.15,8,6),flameMaterial,lampFaces.length);
+    const transform=new THREE.Object3D();
+    lampFaces.forEach((face,index)=>{
+      const x=face.x+face.nx*0.48,z=face.z+face.nz*0.48,y=face.floorY+4.55;
+      transform.position.set(x,y-0.16,z);transform.rotation.set(0,face.yaw,0);transform.scale.set(1,1,1);transform.updateMatrix();bracket.setMatrixAt(index,transform.matrix);
+      transform.position.set(x,y-0.31,z);transform.updateMatrix();stem.setMatrixAt(index,transform.matrix);
+      transform.position.set(x+face.nx*0.18,y+0.19,z+face.nz*0.18);transform.scale.set(0.8,1.3,0.8);transform.updateMatrix();flames.setMatrixAt(index,transform.matrix);
+      flameBases.push({x:x+face.nx*0.18,y:y+0.19,z:z+face.nz*0.18,phase:index*1.73,scale:0.8});
+      const light=new THREE.PointLight(0xff9a48,1.15,12,2);light.position.set(x+face.nx*0.35,y+0.26,z+face.nz*0.35);
+      light.castShadow=false;registerGraphicsPointLight(light);group.add(light);lights.push(light);
+    });
+    [bracket,stem,flames].forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=false;group.add(mesh);});
+    for(const [dx,dz] of [[-8,-7],[10,9]]){
+      const coolFill=new THREE.PointLight(0x779bb9,0.36,18,2);
+      coolFill.position.set(centerX+dx,floorY+6.2,centerZ+dz);coolFill.castShadow=false;group.add(coolFill);
+    }
+
+    const fogCandidates=[];
+    groundRooms.forEach(room=>{
+      const open=[];
+      for(let row=1;row<mazeSize-1;row++)for(let col=1;col<mazeSize-1;col++)if(room.grid[row][col]===0){
+        const x=room.roomX+(col+0.5)*cellSize,z=room.roomZ+(row+0.5)*cellSize;
+        if(room.roomIndex!==0||Math.hypot(x-centerX,z-centerZ)>9)open.push({x,z,y:room.floorY+0.12});
+      }
+      if(open.length&&fogCandidates.length<10){
+        const picked=open[Math.floor(random()*open.length)];
+        fogCandidates.push({...picked,sx:7.5+random()*5.5,sz:3.4+random()*2.1,angle:random()*Math.PI,phase:random()*Math.PI*2});
+      }
+    });
+    if(fogCandidates.length){
+      const fog=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({
+        map:getCathedralGroundFogTexture(),color:0x9db3c4,transparent:true,opacity:0.34,depthWrite:false,
+        side:THREE.DoubleSide,toneMapped:false
+      }),fogCandidates.length);
+      fogCandidates.forEach((patch,index)=>{
+        transform.position.set(patch.x,patch.y,patch.z);transform.rotation.set(-Math.PI/2,0,patch.angle);
+        transform.scale.set(patch.sx,patch.sz,1);transform.updateMatrix();fog.setMatrixAt(index,transform.matrix);
+      });
+      fog.instanceMatrix.needsUpdate=true;fog.frustumCulled=false;fog.renderOrder=3;group.add(fog);
+      cathedralGroundTierAtmosphere={fog,fogPatches:fogCandidates,flames,flameBases,lights,lastUpdate:0};
+    }else cathedralGroundTierAtmosphere={flames,flameBases,lights,lastUpdate:0};
+  }else cathedralGroundTierAtmosphere=null;
+}
+
+function updateCathedralGroundTierAtmosphere(time){
+  const state=cathedralGroundTierAtmosphere;
+  if(!state||gameMode!==GameMode.PLAYING||currentLocation!==1||currentFloorIndex!==0||time-state.lastUpdate<0.05)return;
+  state.lastUpdate=time;
+  const transform=new THREE.Object3D();
+  if(state.fog){
+    state.fogPatches.forEach((patch,index)=>{
+      const drift=time*0.12+patch.phase;
+      transform.position.set(patch.x+Math.sin(drift)*1.4,patch.y+Math.sin(drift*0.7)*0.045,patch.z+Math.cos(drift*0.83)*1.0);
+      transform.rotation.set(-Math.PI/2,0,patch.angle+Math.sin(drift*0.35)*0.04);
+      transform.scale.set(patch.sx*(1+Math.sin(drift)*0.035),patch.sz*(1+Math.cos(drift)*0.045),1);
+      transform.updateMatrix();state.fog.setMatrixAt(index,transform.matrix);
+    });
+    state.fog.instanceMatrix.needsUpdate=true;
+  }
+  if(state.flames){
+    state.flameBases.forEach((flame,index)=>{
+      const pulse=0.91+Math.sin(time*8+flame.phase)*0.09+Math.sin(time*14+flame.phase*0.7)*0.04;
+      transform.position.set(flame.x,flame.y+Math.sin(time*10+flame.phase)*0.025,flame.z);
+      transform.rotation.set(0,flame.phase,Math.sin(time*5+flame.phase)*0.08);
+      transform.scale.set(flame.scale*(0.92+Math.sin(time*7+flame.phase)*0.06),flame.scale*pulse,flame.scale*(0.9+Math.cos(time*9+flame.phase)*0.05));
+      transform.updateMatrix();state.flames.setMatrixAt(index,transform.matrix);
+    });
+    state.flames.instanceMatrix.needsUpdate=true;
+  }
+  state.lights.forEach((light,index)=>{light.intensity=1.04+Math.sin(time*8+index*1.73)*0.09+Math.sin(time*13+index*0.71)*0.045;});
+}
+
+function resetCathedralGroundTierAtmosphere(){cathedralGroundTierAtmosphere=null;}
 
 function buildRegionalVisuals(locationIndex,floorRooms,ox,oz){
   if(!scene||!floorRooms)return;
