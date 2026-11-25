@@ -906,62 +906,64 @@ function loadHunterEnemyModel(){
 
 function createSurfaceTextures(){
   if(surfaceTextures) return surfaceTextures;
-  const makeTexture = (kind, bump=false) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    const wall = kind === 'wall';
-    ctx.fillStyle = bump ? '#292929' : (wall ? '#202024' : '#1d2023');
-    ctx.fillRect(0,0,256,256);
-    const stoneW = wall ? 64 : 32;
-    const stoneH = 32;
+  const makeSurfaceSet=kind=>{
+    const size=256,wall=kind==='wall',stoneW=wall?64:32,stoneH=32;
+    const albedoCanvas=document.createElement('canvas'),heightCanvas=document.createElement('canvas'),roughnessCanvas=document.createElement('canvas');
+    [albedoCanvas,heightCanvas,roughnessCanvas].forEach(canvas=>{canvas.width=canvas.height=size;});
+    const albedo=albedoCanvas.getContext('2d'),height=heightCanvas.getContext('2d'),roughness=roughnessCanvas.getContext('2d');
+    albedo.fillStyle=wall?'#202024':'#1d2023';albedo.fillRect(0,0,size,size);
+    height.fillStyle='#454545';height.fillRect(0,0,size,size);
+    roughness.fillStyle='#eeeeee';roughness.fillRect(0,0,size,size);
+    let seed=wall?0x48a17d:0x91c63b;
+    const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
     for(let row=0;row<8;row++){
-      const offset = row % 2 ? stoneW/2 : 0;
-      for(let x=-stoneW;x<256+stoneW;x+=stoneW){
-        const sx = x + offset;
-        const inset = wall ? 3 : 2;
-        const sw = stoneW - inset*2;
-        const sh = stoneH - inset*2;
-        const shade = Math.floor(Math.random()*13);
-        if(bump){
-          const hi = 94 + shade*2;
-          const bevel = ctx.createLinearGradient(sx+inset,row*stoneH+inset,sx+stoneW-inset,row*stoneH+stoneH-inset);
-          bevel.addColorStop(0,`rgb(${hi+24},${hi+24},${hi+24})`);
-          bevel.addColorStop(0.14,`rgb(${hi},${hi},${hi})`);
-          bevel.addColorStop(1,`rgb(${hi-20},${hi-20},${hi-20})`);
-          ctx.fillStyle = bevel;
-        } else {
-          const base = wall ? 43+shade : 48+shade;
-          const tint = wall ? [base,base-2,base+2] : [base,base+1,base+2];
-          const stone = ctx.createLinearGradient(sx+inset,row*stoneH+inset,sx+stoneW-inset,row*stoneH+stoneH-inset);
-          stone.addColorStop(0,`rgb(${tint[0]+9},${tint[1]+9},${tint[2]+10})`);
-          stone.addColorStop(0.45,`rgb(${tint[0]},${tint[1]},${tint[2]})`);
-          stone.addColorStop(1,`rgb(${tint[0]-7},${tint[1]-7},${tint[2]-6})`);
-          ctx.fillStyle = stone;
-        }
-        ctx.fillRect(sx+inset,row*stoneH+inset,sw,sh);
-        ctx.strokeStyle = bump ? 'rgba(225,225,225,.18)' : 'rgba(115,109,102,.22)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx+inset+0.5,row*stoneH+inset+0.5,sw-1,sh-1);
-        for(let pit=0;pit<5;pit++){
-          const px = sx+inset+3+Math.random()*Math.max(1,sw-6);
-          const py = row*stoneH+inset+3+Math.random()*Math.max(1,sh-6);
-          ctx.fillStyle = bump ? 'rgba(24,24,24,.28)' : 'rgba(4,5,7,.16)';
-          ctx.fillRect(px,py,1+Math.random()*2,1+Math.random()*2);
+      const offset=row%2?stoneW/2:0;
+      for(let x=-stoneW;x<size+stoneW;x+=stoneW){
+        const sx=x+offset,inset=wall?3:2,sw=stoneW-inset*2,sh=stoneH-inset*2,shade=Math.floor(random()*18);
+        const base=wall?42+shade:46+shade,tint=wall?[base,base-2,base+2]:[base,base+1,base+2];
+        const stone=albedo.createLinearGradient(sx+inset,row*stoneH+inset,sx+stoneW-inset,row*stoneH+stoneH-inset);
+        stone.addColorStop(0,`rgb(${tint[0]+11},${tint[1]+10},${tint[2]+12})`);
+        stone.addColorStop(0.48,`rgb(${tint[0]},${tint[1]},${tint[2]})`);
+        stone.addColorStop(1,`rgb(${tint[0]-8},${tint[1]-7},${tint[2]-6})`);
+        albedo.fillStyle=stone;albedo.fillRect(sx+inset,row*stoneH+inset,sw,sh);
+        const relief=157+shade;
+        const bevel=height.createLinearGradient(sx+inset,row*stoneH+inset,sx+stoneW-inset,row*stoneH+stoneH-inset);
+        bevel.addColorStop(0,`rgb(${Math.min(220,relief+34)},${Math.min(220,relief+34)},${Math.min(220,relief+34)})`);
+        bevel.addColorStop(0.18,`rgb(${relief},${relief},${relief})`);
+        bevel.addColorStop(1,`rgb(${relief-45},${relief-45},${relief-45})`);
+        height.fillStyle=bevel;height.fillRect(sx+inset,row*stoneH+inset,sw,sh);
+        const rough=194+Math.floor(random()*50);roughness.fillStyle=`rgb(${rough},${rough},${rough})`;roughness.fillRect(sx+inset,row*stoneH+inset,sw,sh);
+        albedo.strokeStyle='rgba(115,109,102,.28)';albedo.lineWidth=1;albedo.strokeRect(sx+inset+0.5,row*stoneH+inset+0.5,sw-1,sh-1);
+        height.strokeStyle='rgba(76,76,76,.92)';height.lineWidth=1;height.strokeRect(sx+inset+0.5,row*stoneH+inset+0.5,sw-1,sh-1);
+        for(let pit=0;pit<7;pit++){
+          const px=sx+inset+3+random()*Math.max(1,sw-6),py=row*stoneH+inset+3+random()*Math.max(1,sh-6),pitSize=1+random()*2.5;
+          albedo.fillStyle='rgba(4,5,7,.3)';albedo.fillRect(px,py,pitSize,pitSize);
+          height.fillStyle='rgba(45,45,45,.78)';height.fillRect(px,py,pitSize,pitSize);
+          roughness.fillStyle='rgba(255,255,255,.9)';roughness.fillRect(px,py,pitSize,pitSize);
         }
       }
     }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.anisotropy = renderer ? Math.min(8,renderer.capabilities.getMaxAnisotropy()) : 1;
-    if(!bump && THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
-    return texture;
+    const heightPixels=height.getImageData(0,0,size,size).data,normalCanvas=document.createElement('canvas');
+    normalCanvas.width=normalCanvas.height=size;
+    const normalContext=normalCanvas.getContext('2d'),normalPixels=normalContext.createImageData(size,size),strength=wall?1.25:1.7;
+    const sample=(x,y)=>heightPixels[((Math.max(0,Math.min(size-1,y))*size)+Math.max(0,Math.min(size-1,x)))*4]/255;
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const dx=(sample(x+1,y)-sample(x-1,y))*strength,dy=(sample(x,y+1)-sample(x,y-1))*strength;
+      let nx=-dx,ny=-dy,nz=1;const inv=1/Math.sqrt(nx*nx+ny*ny+nz*nz);nx*=inv;ny*=inv;nz*=inv;
+      const index=(y*size+x)*4;normalPixels.data[index]=Math.round((nx*0.5+0.5)*255);normalPixels.data[index+1]=Math.round((ny*0.5+0.5)*255);normalPixels.data[index+2]=Math.round((nz*0.5+0.5)*255);normalPixels.data[index+3]=255;
+    }
+    normalContext.putImageData(normalPixels,0,0);
+    const makeTexture=(canvas,isColor=false)=>{
+      const texture=new THREE.CanvasTexture(canvas);texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;
+      texture.anisotropy=renderer?Math.min(getGraphicsProfile().anisotropy,renderer.capabilities.getMaxAnisotropy()):1;
+      if(isColor&&THREE.sRGBEncoding!==undefined)texture.encoding=THREE.sRGBEncoding;
+      return texture;
+    };
+    return {map:makeTexture(albedoCanvas,true),bumpMap:makeTexture(heightCanvas),normalMap:makeTexture(normalCanvas),roughnessMap:makeTexture(roughnessCanvas)};
   };
-  surfaceTextures = {
-    wall:makeTexture('wall'), wallBump:makeTexture('wall',true),
-    floor:makeTexture('floor'), floorBump:makeTexture('floor',true)
-  };
+  const wall=makeSurfaceSet('wall'),floor=makeSurfaceSet('floor');
+  surfaceTextures={wall:wall.map,wallBump:wall.bumpMap,wallNormal:wall.normalMap,wallRoughness:wall.roughnessMap,
+    floor:floor.map,floorBump:floor.bumpMap,floorNormal:floor.normalMap,floorRoughness:floor.roughnessMap};
   return surfaceTextures;
 }
 
@@ -992,8 +994,9 @@ function addCobblePatch(width,depth,cx,cz,y,ceiling=false,segmentSpacing=3){
   for(let i=0;i<pos.count;i++) pos.setZ(i,(Math.random()-0.5)*0.035);
   geo.computeVertexNormals();
   const mat=new THREE.MeshStandardMaterial({
-    color:ceiling?palette.ceiling:palette.floor,map:surfaces.floor,bumpMap:surfaces.floorBump,
-    bumpScale:ceiling?0.055:0.14,roughness:ceiling?0.9:0.46,metalness:ceiling?0.025:0.07,
+    color:ceiling?palette.ceiling:palette.floor,map:surfaces.floor,normalMap:surfaces.floorNormal,
+    normalScale:new THREE.Vector2(0.52,0.52),roughnessMap:surfaces.floorRoughness,
+    roughness:ceiling?0.93:0.84,metalness:ceiling?0.015:0.025,
     side:ceiling?THREE.DoubleSide:THREE.FrontSide
   });
   const floor=new THREE.Mesh(geo,mat);

@@ -666,6 +666,14 @@ function renderSettingsTab(tab){
     });
   } else if(tab === 'screen'){
     c.innerHTML = `
+      <div class="settings-row graphics-quality-row">
+        <div class="sr-label"><b>🎨 КАЧЕСТВО ГРАФИКИ</b></div>
+        <div class="graphics-quality-toggle" role="group" aria-label="Профиль графики">
+          <button type="button" class="graphics-quality-btn" data-quality="ultra">УЛЬТРА</button>
+          <button type="button" class="graphics-quality-btn" data-quality="medium">СРЕДНИЕ</button>
+        </div>
+        <div class="graphics-quality-note" id="graphicsQualityNote"></div>
+      </div>
       <div class="settings-row">
         <div class="sr-label"><b>🌌 ЯРКОСТЬ НЕБА</b><span class="val" id="skyVal">${Math.round(skyBrightness*100)}%</span></div>
         <input type="range" id="skySlider" min="20" max="380" value="${Math.round(skyBrightness*100)}">
@@ -686,6 +694,11 @@ function renderSettingsTab(tab){
         <div class="sr-label"><b>⬇ ИНВЕРСИЯ Y</b><input type="checkbox" id="invertCheck" style="transform:scale(1.4)" ${invertY?'checked':''}></div>
       </div>
     `;
+    document.querySelectorAll('.graphics-quality-btn').forEach(button=>button.addEventListener('click',()=>{
+      applyGraphicsQuality(button.dataset.quality);
+      sfx('menu');
+    }));
+    updateGraphicsQualityControls();
     $('skySlider').addEventListener('input', e => {
       skyBrightness = e.target.value / 100;
       $('skyVal').textContent = e.target.value + '%';
@@ -731,6 +744,18 @@ function renderSettingsTab(tab){
       <div class="about-text ver">Complete Edition • v1.2</div>
     `;
   }
+}
+
+function updateGraphicsQualityControls(){
+  document.querySelectorAll('.graphics-quality-btn').forEach(button=>{
+    const selected=button.dataset.quality===graphicsQuality;
+    button.classList.toggle('active',selected);
+    button.setAttribute('aria-pressed',selected?'true':'false');
+  });
+  const note=$('graphicsQualityNote');
+  if(note)note.textContent=graphicsQuality==='ultra'
+    ?'SSAO, мягкое свечение и динамические тени. На телефонах разрешение и цена эффектов автоматически ограничены.'
+    :'Облегчённое сглаживание и цветокоррекция; без SSAO и Bloom для более высокой частоты кадров.';
 }
 
 function setupFullscreen(){

@@ -42,6 +42,8 @@ function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceilin
   const surfaces=createSurfaceTextures();
   surfaces.floor.repeat.set(Math.max(1,width/4.5),Math.max(1,depth/4.5));
   surfaces.floorBump.repeat.set(Math.max(1,width/4.5),Math.max(1,depth/4.5));
+  surfaces.floorNormal.repeat.copy(surfaces.floor.repeat);
+  surfaces.floorRoughness.repeat.copy(surfaces.floor.repeat);
   let regions=[{x0:ox,x1:ox+width,z0:oz,z1:oz+depth}];
   holes.forEach(hole=>{
     const next=[];
@@ -81,7 +83,7 @@ function addRoomWallBatch(boxes,roomBounds,floorY,locationIndex=currentLocation)
   geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
   geometry.setIndex(indices); geometry.computeBoundingSphere();
   const tex=createSurfaceTextures(),palette=getLocationVisualPalette(locationIndex);
-  const material=new THREE.MeshStandardMaterial({color:palette.wall,map:tex.wall,bumpMap:tex.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
+  const material=new THREE.MeshStandardMaterial({color:palette.wall,map:tex.wall,normalMap:tex.wallNormal,normalScale:new THREE.Vector2(0.62,0.62),roughnessMap:tex.wallRoughness,roughness:0.92,metalness:0.02,transparent:true,opacity:1});
   const mesh=new THREE.Mesh(geometry,material);
   mesh.castShadow=true; mesh.receiveShadow=true;
   mesh.userData={isRoomBatch:true,colliders:boxes,targetOpacity:1,cx:(roomBounds.minX+roomBounds.maxX)/2,cy:floorY+5.25,cz:(roomBounds.minZ+roomBounds.maxZ)/2,minX:roomBounds.minX,maxX:roomBounds.maxX,minZ:roomBounds.minZ,maxZ:roomBounds.maxZ,w:roomBounds.maxX-roomBounds.minX,h:10.5,d:roomBounds.maxZ-roomBounds.minZ,floorY};
@@ -188,8 +190,8 @@ function buildOedonChapelFoyer(room,floorY){
   const group=new THREE.Group(),cx=room.roomX+cellSize*3.5,cz=room.roomZ+cellSize*3.5;
   const chapelMaps=getChapelTextureAssets();
   const surfaces=createSurfaceTextures();
-  const stone=new THREE.MeshStandardMaterial({color:0x96979d,map:chapelMaps.wall,roughness:0.96,bumpMap:chapelMaps.wall,bumpScale:0.045});
-  const darkStone=new THREE.MeshStandardMaterial({color:0x5b5c64,map:chapelMaps.wall,roughness:0.94,metalness:0.02,bumpMap:chapelMaps.wall,bumpScale:0.035});
+  const stone=new THREE.MeshStandardMaterial({color:0x96979d,map:chapelMaps.wall,normalMap:surfaces.wallNormal,normalScale:new THREE.Vector2(0.48,0.48),roughnessMap:surfaces.wallRoughness,roughness:0.96});
+  const darkStone=new THREE.MeshStandardMaterial({color:0x5b5c64,map:chapelMaps.wall,normalMap:surfaces.wallNormal,normalScale:new THREE.Vector2(0.42,0.42),roughnessMap:surfaces.wallRoughness,roughness:0.94,metalness:0.02});
   const brass=new THREE.MeshStandardMaterial({color:0x665035,roughness:0.68,metalness:0.58});
   const stainedGlass=new THREE.MeshBasicMaterial({color:0xffffff,map:chapelMaps.glass,side:THREE.DoubleSide,toneMapped:false});
   const makeBox=(w,h,d,material,x,y,z)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);return mesh;};
@@ -203,16 +205,16 @@ function buildOedonChapelFoyer(room,floorY){
 
   const chapelWall=wallMeshes.find(wall=>wall.userData&&wall.userData.isRoomBatch&&Math.abs(wall.userData.minX-room.roomX)<0.01&&Math.abs(wall.userData.minZ-room.roomZ)<0.01&&Math.abs(wall.userData.floorY-floorY)<0.01);
   if(chapelWall){
-    chapelWall.material.map=chapelMaps.wall;chapelWall.material.bumpMap=chapelMaps.wall;
-    chapelWall.material.color.setHex(0x999ba3);chapelWall.material.bumpScale=0.045;chapelWall.material.roughness=0.96;chapelWall.material.metalness=0;
+    chapelWall.material.map=chapelMaps.wall;chapelWall.material.normalMap=surfaces.wallNormal;chapelWall.material.roughnessMap=surfaces.wallRoughness;
+    chapelWall.material.normalScale.set(0.48,0.48);chapelWall.material.color.setHex(0x999ba3);chapelWall.material.roughness=0.96;chapelWall.material.metalness=0;
     chapelWall.material.needsUpdate=true;
   }
-  const floorWash=new THREE.Mesh(new THREE.PlaneGeometry(cellSize*mazeSize,cellSize*mazeSize),new THREE.MeshStandardMaterial({color:0x38414c,map:chapelMaps.floor,bumpMap:chapelMaps.floor,bumpScale:0.035,roughness:0.46,metalness:0.06}));
+  const floorWash=new THREE.Mesh(new THREE.PlaneGeometry(cellSize*mazeSize,cellSize*mazeSize),new THREE.MeshStandardMaterial({color:0x38414c,map:chapelMaps.floor,normalMap:surfaces.floorNormal,normalScale:new THREE.Vector2(0.48,0.48),roughnessMap:surfaces.floorRoughness,roughness:0.84,metalness:0.025}));
   floorWash.rotation.x=-Math.PI/2;floorWash.position.set(cx,floorY+0.018,cz);group.add(floorWash);
   const mosaicGeometry=new THREE.CircleGeometry(5.3,64),mosaicUv=mosaicGeometry.attributes.uv;
   for(let i=0;i<mosaicUv.count;i++) mosaicUv.setXY(i,0.5+(mosaicUv.getX(i)-0.5)*0.2,0.5+(mosaicUv.getY(i)-0.5)*0.2);
   mosaicUv.needsUpdate=true;
-  const mosaic=new THREE.Mesh(mosaicGeometry,new THREE.MeshStandardMaterial({color:0x555d68,map:chapelMaps.floor,bumpMap:chapelMaps.floor,bumpScale:0.035,roughness:0.58,metalness:0.04}));
+  const mosaic=new THREE.Mesh(mosaicGeometry,new THREE.MeshStandardMaterial({color:0x555d68,map:chapelMaps.floor,normalMap:surfaces.floorNormal,normalScale:new THREE.Vector2(0.35,0.35),roughnessMap:surfaces.floorRoughness,roughness:0.72,metalness:0.04}));
   mosaic.rotation.x=-Math.PI/2;mosaic.position.set(cx,floorY+0.045,cz);group.add(mosaic);
   for(const [inner,outer,color] of [[4.1,4.22,0x514231],[2.4,2.49,0x482f34],[0.52,0.66,0x5b503d]]){
     const ring=new THREE.Mesh(new THREE.RingGeometry(inner,outer,48),new THREE.MeshStandardMaterial({color,roughness:0.88,metalness:0.12,side:THREE.DoubleSide}));
@@ -300,7 +302,11 @@ function buildOedonChapelFoyer(room,floorY){
     }
     const roseGem=new THREE.Mesh(new THREE.SphereGeometry(0.075,8,6),new THREE.MeshBasicMaterial({color:0xd94d56,toneMapped:false}));roseGem.position.set(0,4.75,0.49);window.add(roseGem);
     addLeadStroke([[-1.72,0.36],[-1.72,4.1],[-1.58,5.25],[-1.12,6.35],[0,6.72],[1.12,6.35],[1.58,5.25],[1.72,4.1],[1.72,0.36]],0.045);
-    const glassGlow=new THREE.PointLight(0x779bd0,0.42,10,2);glassGlow.position.set(0,4.1,0.22);window.add(glassGlow);
+    const glassGlow=new THREE.PointLight(0x779bd0,0.42,10,2);glassGlow.position.set(0,4.1,0.22);registerGraphicsPointLight(glassGlow);window.add(glassGlow);
+    const moonRay=new THREE.SpotLight(0x86a7d3,1.35,30,Math.PI/7,0.72,1.6);
+    moonRay.position.set(0,4.1,0.26);moonRay.target.position.set(0,-2.4,12);window.add(moonRay);window.add(moonRay.target);
+    const shaft=new THREE.Mesh(new THREE.ConeGeometry(2.25,12,16,1,true),new THREE.MeshBasicMaterial({color:0x8aaad4,transparent:true,opacity:0.055,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,fog:true}));
+    shaft.rotation.x=Math.PI/2;shaft.position.set(0,3.1,6.25);shaft.renderOrder=1;window.add(shaft);
     window.position.set(x,floorY+1.9,windowZ);group.add(window);
   });
 
@@ -331,7 +337,7 @@ function buildOedonChapelFoyer(room,floorY){
     ember.userData={baseX:cx,baseY:floorY+1.86,baseZ:altarZ,baseSize:0.045+index*0.008,phase,speed:0.55+index*0.12,rise:0.7+index*0.12};
     group.add(ember);altarEmberRefs.push(ember);
   });
-  altarFireLight=new THREE.PointLight(0xff762b,1.8,18,2);altarFireLight.position.set(cx,floorY+2.25,altarZ);altarFireLight.userData.baseY=altarFireLight.position.y;group.add(altarFireLight);
+  altarFireLight=new THREE.PointLight(0xff762b,1.8,18,2);altarFireLight.position.set(cx,floorY+2.25,altarZ);altarFireLight.userData.baseY=altarFireLight.position.y;registerGraphicsPointLight(altarFireLight);group.add(altarFireLight);
 
   const urnPoints=[new THREE.Vector2(0,0),new THREE.Vector2(0.36,0),new THREE.Vector2(0.52,0.24),new THREE.Vector2(0.45,0.48),new THREE.Vector2(0.68,0.82),new THREE.Vector2(0.62,1.15),new THREE.Vector2(0.38,1.38),new THREE.Vector2(0.4,1.52),new THREE.Vector2(0.5,1.58),new THREE.Vector2(0,1.58)];
   const urnGeo=new THREE.LatheGeometry(urnPoints,16);
@@ -921,7 +927,7 @@ function updateStageLocationLabel(show=false){
 function createGothicWall(worldX,worldY,worldZ,w,h,d,isBoundary){
   if(!scene) return null;
   const surfaces = createSurfaceTextures();
-  const mat = new THREE.MeshStandardMaterial({color:getLocationVisualPalette(currentLocation).wall,map:surfaces.wall,bumpMap:surfaces.wallBump,bumpScale:0.18,roughness:0.84,metalness:0.02,transparent:true,opacity:1});
+  const mat = new THREE.MeshStandardMaterial({color:getLocationVisualPalette(currentLocation).wall,map:surfaces.wall,normalMap:surfaces.wallNormal,normalScale:new THREE.Vector2(0.62,0.62),roughnessMap:surfaces.wallRoughness,roughness:0.92,metalness:0.02,transparent:true,opacity:1});
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
   wall.position.set(worldX,worldY,worldZ);
   wall.castShadow = false; wall.receiveShadow = true;
@@ -1452,6 +1458,7 @@ function disposeWorldObjectResources(root,shared,disposed){
 
 function clearWorld(){
   if(!scene) return;
+  if(typeof clearGraphicsPointLights==='function')clearGraphicsPointLights();
   altarFireRefs.length=0;altarEmberRefs.length=0;altarFireLight=null;
   if(worldTutorialTimers) worldTutorialTimers.forEach(clearTimeout);
   worldTutorialTimers=[];

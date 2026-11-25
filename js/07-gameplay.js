@@ -343,11 +343,11 @@ function loop(){
     player.walkTime += 0.016*0.9; poseHunterModel('idle',rawTime); if(hunterMixer) hunterMixer.update(0.016);
     updateHunterRig(0.016,0);
     updateRain(dtGlobal());
-    renderer.render(scene, camera);
+    renderGameFrame();
     return;
   }
   if(gameMode === GameMode.PAUSED){
-    renderer.render(scene,camera);
+    renderGameFrame();
     return;
   }
   let dt = 0.016 * player.timeScale;
@@ -406,11 +406,11 @@ function loop(){
     if(doll) doll.position.y = Math.sin(rawTime)*0.05;
     checkDollProximity();
     updateRain(dt);
-    renderer.render(scene,camera);
+    renderGameFrame();
     return;
   }
-  if(gameMode !== GameMode.PLAYING){ renderer.render(scene,camera); return; }
-  if(player.isDead){ renderer.render(scene,camera); return; }
+  if(gameMode !== GameMode.PLAYING){ renderGameFrame(); return; }
+  if(player.isDead){ renderGameFrame(); return; }
   const hunterRigStartX=hunter.position.x,hunterRigStartZ=hunter.position.z;
   if(hunterVisual) hunterVisual.position.y = lerp(hunterVisual.position.y,hunterVisualBaseY,0.18);
   if(hunterMixer) hunterMixer.update(dt);
@@ -655,7 +655,7 @@ function loop(){
   );
   camera.position.copy(getCameraSafePosition(lookTarget,smoothedCamera));
   camera.lookAt(lookTarget);
-  renderer.render(scene,camera);
+  renderGameFrame();
 }
 
 function startGame(loadSave){

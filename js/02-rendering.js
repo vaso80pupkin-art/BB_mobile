@@ -11,10 +11,7 @@ function initScene(){
   camera = new THREE.PerspectiveCamera(62, innerWidth/innerHeight, 0.1, 1000);
   camera.position.set(0, 4, 8);
 
-  const mobileQuality = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth,innerHeight) < 600;
-  renderer = new THREE.WebGLRenderer({antialias:!mobileQuality, powerPreference:'high-performance'});
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobileQuality ? 1.0 : 1.75));
+  renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high-performance'});
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -30,14 +27,18 @@ function initScene(){
   lightingRefs.moon = new THREE.DirectionalLight(0x7088bb, 0.55);
   lightingRefs.moon.position.set(-20, 40, -50);
   lightingRefs.moon.castShadow = true;
-  lightingRefs.moon.shadow.mapSize.set(mobileQuality ? 768 : 2048, mobileQuality ? 768 : 2048);
-  lightingRefs.moon.shadow.camera.left = -170; lightingRefs.moon.shadow.camera.right = 170;
-  lightingRefs.moon.shadow.camera.top = 105; lightingRefs.moon.shadow.camera.bottom = -105;
+  lightingRefs.moon.shadow.camera.left = -34; lightingRefs.moon.shadow.camera.right = 34;
+  lightingRefs.moon.shadow.camera.top = 34; lightingRefs.moon.shadow.camera.bottom = -34;
+  lightingRefs.moon.shadow.camera.near = 0.5; lightingRefs.moon.shadow.camera.far = 130;
   lightingRefs.moon.shadow.bias = -0.0005;
+  lightingRefs.moon.shadow.normalBias = 0.025;
+  lightingRefs.moon.shadow.radius = 3.5;
+  scene.add(lightingRefs.moon.target);
   scene.add(lightingRefs.moon);
 
   lightingRefs.rim = new THREE.DirectionalLight(0x9aa9c4, 0.28);
   lightingRefs.rim.position.set(10, 15, -20);
+  scene.add(lightingRefs.rim.target);
   scene.add(lightingRefs.rim);
 
   lightingRefs.fill = new THREE.DirectionalLight(0x445577, 0.18);
@@ -58,16 +59,211 @@ function initScene(){
   lightingRefs.glow.position.copy(lightingRefs.moonMesh.position);
   scene.add(lightingRefs.glow);
 
-  addEventListener('resize', () => {
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
+  applyGraphicsQuality(graphicsQuality,{persist:false,saveGame:false});
+  addEventListener('resize', handleRendererResize);
 
   createRain();
   minimapCtx = $('minimapCanvas').getContext('2d');
   if(player.availableGems.length === 0) player.availableGems = [...BLOOD_GEMS];
   applyBrightness();
+}
+
+let graphicsComposer=null,graphicsSSAOPass=null,graphicsBloomPass=null,graphicsFXAAPass=null;
+let graphicsPipelineBroken=false;
+let graphicsShadowAnchor=null;
+const graphicsLightWorldPosition=new THREE.Vector3();
+
+function isMobileGraphicsDevice(){
+  return (window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(innerWidth,innerHeight)<600;
+}
+function getGraphicsProfile(){
+  const mobile=isMobileGraphicsDevice(),ultra=graphicsQuality==='ultra';
+  return {
+    mobile,ultra,
+    pixelRatioLimit:ultra?(mobile?1.45:2.0):(mobile?0.9:1.25),
+    shadowMapSize:ultra?2048:(mobile?768:1024),
+    pointShadowMapSize:mobile?512:768,
+    anisotropy:ultra?(mobile?8:16):4,
+    useSSAO:ultra,
+    useBloom:ultra,
+    ssaoKernelRadius:mobile?8:11,
+    bloomStrength:mobile?0.34:0.52
+  };
+}
+function getGraphicsPixelRatio(profile=getGraphicsProfile()){
+  return Math.max(0.65,Math.min(window.devicePixelRatio||1,profile.pixelRatioLimit));
+}
+
+const cinematicGradeShader={
+  uniforms:{tDiffuse:{value:null}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 source=texture2D(tDiffuse,vUv);vec3 color=max(source.rgb,vec3(0.0));float luminance=dot(color,vec3(0.2126,0.7152,0.0722));vec3 coolShadows=vec3(0.91,0.96,1.08);vec3 warmHighlights=vec3(1.07,0.98,0.88);vec3 tint=mix(coolShadows,warmHighlights,smoothstep(0.08,0.78,luminance));color*=mix(vec3(1.0),tint,0.16);float gradedLuma=dot(color,vec3(0.2126,0.7152,0.0722));color=mix(vec3(gradedLuma),color,1.06);gl_FragColor=vec4(color,source.a);}`
+};
+
+function disposeGraphicsPipeline(){
+  if(!graphicsComposer)return;
+  const composer=graphicsComposer,disposedMaterials=new Set();
+  composer.passes.forEach(pass=>{
+    if(pass&&typeof pass.dispose==='function')pass.dispose();
+    if(!pass)return;
+    Object.keys(pass).forEach(key=>{
+      const value=pass[key],list=Array.isArray(value)?value:[value];
+      list.forEach(item=>{
+        if(item&&item.isMaterial&&!disposedMaterials.has(item)){
+          disposedMaterials.add(item);item.dispose();
+        }
+      });
+    });
+  });
+  if(composer.copyPass&&composer.copyPass.material&&!disposedMaterials.has(composer.copyPass.material))composer.copyPass.material.dispose();
+  if(composer.renderTarget1)composer.renderTarget1.dispose();
+  if(composer.renderTarget2)composer.renderTarget2.dispose();
+  graphicsComposer=null;graphicsSSAOPass=null;graphicsBloomPass=null;graphicsFXAAPass=null;
+}
+
+function updateFXAAResolution(){
+  if(!renderer||!graphicsFXAAPass)return;
+  const size=renderer.getDrawingBufferSize(new THREE.Vector2());
+  graphicsFXAAPass.uniforms.resolution.value.set(1/Math.max(1,size.x),1/Math.max(1,size.y));
+}
+
+function buildGraphicsPipeline(){
+  if(!renderer||!scene||!camera)return;
+  disposeGraphicsPipeline();graphicsPipelineBroken=false;
+  const profile=getGraphicsProfile();
+  try{
+    if(!THREE.EffectComposer||!THREE.RenderPass||!THREE.ShaderPass||!THREE.FXAAShader||!THREE.GammaCorrectionShader){
+      throw new Error('Не загружены необходимые postprocessing addons Three.js r128.');
+    }
+    const composer=new THREE.EffectComposer(renderer);
+    if(profile.useSSAO&&THREE.SSAOPass&&THREE.SSAOShader&&THREE.SimplexNoise){
+      const ssao=new THREE.SSAOPass(scene,camera,innerWidth,innerHeight);
+      ssao.kernelRadius=profile.ssaoKernelRadius;
+      ssao.minDistance=0.003;
+      ssao.maxDistance=0.13;
+      composer.addPass(ssao);graphicsSSAOPass=ssao;
+    }else{
+      if(profile.useSSAO)console.warn('[BB] SSAO недоступен; используется безопасный render pass.');
+      composer.addPass(new THREE.RenderPass(scene,camera));
+    }
+    if(profile.useBloom&&THREE.UnrealBloomPass&&THREE.LuminosityHighPassShader){
+      const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),profile.bloomStrength,0.55,0.72);
+      composer.addPass(bloom);graphicsBloomPass=bloom;
+    }
+    composer.addPass(new THREE.ShaderPass(cinematicGradeShader));
+    const fxaa=new THREE.ShaderPass(THREE.FXAAShader);
+    composer.addPass(fxaa);graphicsFXAAPass=fxaa;
+    composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
+    graphicsComposer=composer;
+    updateFXAAResolution();
+  }catch(error){
+    disposeGraphicsPipeline();graphicsPipelineBroken=true;
+    console.warn('[BB] Postprocessing отключён; используется прямой WebGL render.',error);
+  }
+}
+
+function handleRendererResize(){
+  if(!renderer||!camera)return;
+  camera.aspect=innerWidth/Math.max(1,innerHeight);camera.updateProjectionMatrix();
+  const ratio=getGraphicsPixelRatio();
+  renderer.setPixelRatio(ratio);renderer.setSize(innerWidth,innerHeight,false);
+  if(graphicsComposer){graphicsComposer.setPixelRatio(ratio);graphicsComposer.setSize(innerWidth,innerHeight);}
+  updateFXAAResolution();
+}
+
+function applyGraphicsQuality(quality,options={}){
+  const next=quality==='ultra'?'ultra':'medium',changed=graphicsQuality!==next;
+  graphicsQuality=next;
+  if(options.persist!==false){try{localStorage.setItem(GRAPHICS_QUALITY_KEY,next);}catch(e){}}
+  if(renderer){
+    const profile=getGraphicsProfile(),ratio=getGraphicsPixelRatio(profile);
+    renderer.setPixelRatio(ratio);renderer.setSize(innerWidth,innerHeight,false);
+    renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    if(lightingRefs.moon){
+      const shadow=lightingRefs.moon.shadow;
+      if(shadow.map){shadow.map.dispose();shadow.map=null;}
+      shadow.mapSize.set(profile.shadowMapSize,profile.shadowMapSize);
+      shadow.radius=profile.ultra?3.5:2.2;shadow.needsUpdate=true;
+      shadow.camera.updateProjectionMatrix();
+    }
+    graphicsPointLights.forEach(light=>{
+      if(light.shadow.map){light.shadow.map.dispose();light.shadow.map=null;}
+      light.shadow.mapSize.set(profile.pointShadowMapSize,profile.pointShadowMapSize);
+      light.shadow.radius=profile.ultra?2.5:1.5;
+    });
+    buildGraphicsPipeline();
+    if(typeof applyBrightness==='function')applyBrightness();
+  }
+  if(options.saveGame!==false&&changed&&typeof SaveSystem!=='undefined')SaveSystem.save();
+  if(typeof updateGraphicsQualityControls==='function')updateGraphicsQualityControls();
+  return changed;
+}
+
+function registerGraphicsPointLight(light){
+  if(!light||!light.isPointLight)return;
+  light.castShadow=false;
+  if(!graphicsPointLights.includes(light))graphicsPointLights.push(light);
+}
+function clearGraphicsPointLights(){
+  if(activeGraphicsShadowPointLight){
+    activeGraphicsShadowPointLight.castShadow=false;
+    if(activeGraphicsShadowPointLight.shadow.map){activeGraphicsShadowPointLight.shadow.map.dispose();activeGraphicsShadowPointLight.shadow.map=null;}
+  }
+  graphicsPointLights.length=0;activeGraphicsShadowPointLight=null;
+}
+function updateGraphicsLighting(){
+  if(!hunter||!lightingRefs.moon)return;
+  const x=Math.round(hunter.position.x/8)*8,z=Math.round(hunter.position.z/8)*8,y=hunter.position.y;
+  if(!graphicsShadowAnchor||graphicsShadowAnchor.x!==x||graphicsShadowAnchor.y!==y||graphicsShadowAnchor.z!==z){
+    if(!graphicsShadowAnchor)graphicsShadowAnchor=new THREE.Vector3();
+    graphicsShadowAnchor.set(x,y,z);
+    lightingRefs.moon.target.position.set(x,y+1.4,z);
+    lightingRefs.moon.position.set(x-27,y+48,z-34);
+    lightingRefs.moon.target.updateMatrixWorld();
+    lightingRefs.moon.shadow.camera.updateProjectionMatrix();
+    lightingRefs.moon.shadow.needsUpdate=true;
+    if(lightingRefs.rim){
+      lightingRefs.rim.position.set(x+15,y+19,z-24);
+      lightingRefs.rim.target.position.set(x,y+1.2,z);
+      lightingRefs.rim.target.updateMatrixWorld();
+    }
+  }
+  const shouldCast=graphicsQuality==='ultra'&&gameMode===GameMode.PLAYING;
+  let nearest=null,nearestDistance=18*18;
+  if(shouldCast){
+    for(const light of graphicsPointLights){
+      if(!light||!light.parent||light.intensity<=0.04)continue;
+      light.getWorldPosition(graphicsLightWorldPosition);
+      const distance=graphicsLightWorldPosition.distanceToSquared(hunter.position);
+      if(distance<nearestDistance){nearestDistance=distance;nearest=light;}
+    }
+  }
+  if(nearest!==activeGraphicsShadowPointLight){
+    if(activeGraphicsShadowPointLight){
+      activeGraphicsShadowPointLight.castShadow=false;
+      if(activeGraphicsShadowPointLight.shadow.map){activeGraphicsShadowPointLight.shadow.map.dispose();activeGraphicsShadowPointLight.shadow.map=null;}
+    }
+    activeGraphicsShadowPointLight=nearest;
+    if(nearest){
+      nearest.shadow.mapSize.set(getGraphicsProfile().pointShadowMapSize,getGraphicsProfile().pointShadowMapSize);
+      nearest.shadow.camera.near=0.15;nearest.shadow.camera.far=Math.max(12,nearest.distance||22);
+      nearest.shadow.camera.updateProjectionMatrix();
+      nearest.shadow.bias=-0.0007;nearest.shadow.normalBias=0.035;nearest.shadow.radius=2.5;
+      nearest.castShadow=true;
+    }
+  }
+}
+
+function renderGameFrame(){
+  updateGraphicsLighting();
+  if(graphicsComposer&&!graphicsPipelineBroken){
+    try{graphicsComposer.render();return;}
+    catch(error){
+      graphicsPipelineBroken=true;disposeGraphicsPipeline();
+      console.warn('[BB] Сбой postprocessing; переключение на прямой рендер.',error);
+    }
+  }
+  renderer.render(scene,camera);
 }
 
 function createMoonTexture(){

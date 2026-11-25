@@ -10,6 +10,16 @@ let camSensitivity = 1.0;
 let invertY = true;
 let skyBrightness = 2.0;
 let gameBrightness = 2.0;
+const GRAPHICS_QUALITY_KEY = 'bloodborne_graphics_quality_v1';
+function detectInitialGraphicsQuality(){
+  try{
+    const saved=localStorage.getItem(GRAPHICS_QUALITY_KEY);
+    if(saved==='ultra'||saved==='medium')return saved;
+  }catch(e){}
+  const mobile=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(innerWidth||800,innerHeight||600)<600;
+  return mobile?'medium':'ultra';
+}
+let graphicsQuality = detectInitialGraphicsQuality();
 let stairFallAnimation = null;
 
 /* === ИЗМЕНЕНИЕ: Аудио объект для фоновой музыки === */
@@ -96,6 +106,7 @@ if(!modelFlip && hunterModelYaw !== null){
 if(modelFlip) hunterModelYaw = Math.PI;
 let sceneInitialized = false;
 let enemies = [], wallMeshes = [], wallColliders = [], floorMeshes = [], stairs = [], chests = [], lanterns = [], envObjects = [];
+let graphicsPointLights = [], activeGraphicsShadowPointLight = null;
 let bloodParticles = [], dustMotes = [], rainDrops = [];
 let attackTrails = [], parryIndicators = [], toolProjectiles = [];
 let ambientCreatures = [], cryptAtmosphereAssets = null;
@@ -369,7 +380,7 @@ const SaveSystem = {
           tools: {...player.tools}, unlockedLocations: player.unlockedLocations,
           seenBosses: {...player.seenBosses}, bestKills: player.bestKills, maxCombo: player.maxCombo
         },
-        settings: { version: 2, sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack },
+        settings: { version: 3, sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack, graphicsQuality },
         currentLocation, campaignProgress, achievements: unlockedAchievements, bestiary: discoveredBestiary,
         parryCount, perfectDodgeCount, timestamp: Date.now()
       };
@@ -397,6 +408,11 @@ const SaveSystem = {
         skyBrightness = savedSettings.skyBrightness ?? skyBrightness;
         gameBrightness = savedSettings.gameBrightness ?? gameBrightness;
         currentMusicTrack = savedSettings.currentMusicTrack ?? 0;
+        if(savedSettings.graphicsQuality==='ultra'||savedSettings.graphicsQuality==='medium'){
+          if(savedSettings.graphicsQuality!==graphicsQuality&&typeof applyGraphicsQuality==='function'){
+            applyGraphicsQuality(savedSettings.graphicsQuality,{saveGame:false});
+          }else graphicsQuality=savedSettings.graphicsQuality;
+        }
         if(migrateOldDefaults){
           if(savedSettings.invertY===false) invertY=true;
           if(savedSettings.skyBrightness===1) skyBrightness=2.0;

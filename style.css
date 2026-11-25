@@ -187,6 +187,10 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 .pause-tab,.settings-tab{background:rgba(0,0,0,0.55);border:1px solid #5a3a20;color:#8a7858;padding:6px 14px;font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s}
 .pause-tab.active,.settings-tab.active{background:linear-gradient(180deg,#2e1c08,#181006);color:#ddb858;border-color:#dd9a3a}
 .pause-tab:active,.settings-tab:active{transform:scale(0.96)}
+.graphics-quality-toggle{display:flex;gap:8px;margin-top:8px}
+.graphics-quality-btn{flex:1;min-height:40px;padding:8px 12px;background:rgba(8,10,15,.78);border:1px solid #536075;color:#99a5b5;font:700 11px 'Cinzel',serif;letter-spacing:1.5px;touch-action:manipulation}
+.graphics-quality-btn.active{background:linear-gradient(180deg,#293347,#111821);border-color:#9db8dc;color:#e2efff;box-shadow:inset 0 0 14px rgba(105,147,204,.22)}
+.graphics-quality-note{margin-top:7px;color:#8a93a2;font-size:10px;line-height:1.45}
 .pause-content{min-height:200px}
 .bestiary-entry{background:rgba(0,0,0,0.55);border-left:3px solid #5a3a20;padding:10px 14px;margin-bottom:8px}
 .bestiary-entry h4{color:#ddb858;font-size:14px;letter-spacing:2px;margin-bottom:4px}

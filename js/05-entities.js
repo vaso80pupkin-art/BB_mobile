@@ -282,7 +282,7 @@ function spawnLantern(x,z,isRespawn=false,floorY=0){
   const crossbar = new THREE.Mesh(new THREE.BoxGeometry(0.67,0.055,0.67),trimMat);crossbar.position.y=7.05;g.add(crossbar);
   const flame = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,8),new THREE.MeshBasicMaterial({color:0xff972f}));flame.position.y=7.05;g.add(flame);
   const light = new THREE.PointLight(isRespawn?0xddc088:0xdd9933, isRespawn?4.0:2.8, isRespawn?22:18, 2);
-  light.position.y = 7.05; light.castShadow = false; g.add(light);
+  light.position.y = 7.05; light.castShadow = false; registerGraphicsPointLight(light); g.add(light);
   const glowSprite = new THREE.Sprite(getLanternGlowMaterial().clone());
   glowSprite.position.y = 7.05;
   glowSprite.scale.set(isRespawn?4.2:3.3,isRespawn?4.2:3.3,1);
