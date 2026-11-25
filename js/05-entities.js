@@ -560,7 +560,7 @@ function loadLocation(idx){
   buildCampaignTargets(idx,ox,oz);
   if(idx===2){
     buildMountainRoute(ox,oz);loadCathedralHallSlice(gothicLayout.centerX,0,gothicLayout.lowerZ,2,1.0);
-    scene.traverse(object=>{
+    floorMeshes.forEach(object=>{
       const material=object.material;
       const color=material&&material.color;
       if(object.isMesh&&color&&object.position.y<=0.25&&color.r>0.82&&color.g>0.82&&color.b>0.82)object.visible=false;
@@ -625,6 +625,6 @@ function loadLocation(idx){
     createBloodStain(bloodStain.x,bloodStain.z,bloodStain.echoes,bloodStain.loc,bloodStain.floorY||0);
   }
 
-  worldTutorialTimers=[2500,5500,8500].map((delay,i)=>setTimeout(()=>showTutorial(['Свайп по пустой части — поворот камеры','Двойной тап — захват цели','Заряжайте атаку для ×3 урона!'][i]),delay));
+  worldTutorialTimers=[2500,5500,8500].map((delay,i)=>setTimeout(()=>showTutorial(['Свайп по пустой части — поворот камеры','Двойной тап — перекат','Заряжайте атаку для ×3 урона!'][i]),delay));
   applyBrightness();
 }
