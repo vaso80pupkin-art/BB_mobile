@@ -59,6 +59,7 @@
     <div class="frenzy-bg"><div class="frenzy-fill" id="frenzyFill"></div></div>
   </div>
   <div class="minimap"><canvas class="minimap-canvas" id="minimapCanvas" width="120" height="120"></canvas></div>
+  <div class="stage-plan-hint" id="stagePlanHint">Нажмите на карту — схема этапа</div>
   <div class="level-box" id="levelBox">LV 10</div>
   <div class="ng-box" id="ngBox">NG+1</div>
 
@@ -82,6 +83,19 @@
   <div class="tutorial" id="tutorial"></div>
   <div class="dmg-flash" id="dmgFlash"></div>
   <div class="perfect-dodge" id="perfectDodge"></div>
+</div>
+
+<div class="stage-plan-overlay" id="stagePlanOverlay" aria-hidden="true">
+  <div class="stage-plan-card">
+    <button class="stage-plan-close" id="stagePlanClose" aria-label="Закрыть схему">×</button>
+    <div class="stage-plan-heading">
+      <div class="stage-plan-kicker">МАРШРУТНЫЙ АТЛАС</div>
+      <h2 id="stagePlanTitle">План этапа</h2>
+      <p id="stagePlanSubtitle">Ветки, вертикальные связи и обязательные гейты</p>
+    </div>
+    <canvas id="stagePlanCanvas" width="960" height="560"></canvas>
+    <div class="stage-plan-legend"><span><i class="legend-main"></i> маршрут</span><span><i class="legend-branch"></i> ветка</span><span><i class="legend-gate"></i> гейт</span><span><i class="legend-player"></i> охотник</span></div>
+  </div>
 </div>
 
 <div id="dmgContainer"></div>

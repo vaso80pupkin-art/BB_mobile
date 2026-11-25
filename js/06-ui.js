@@ -552,6 +552,7 @@ function setupButtons(){
   });
 
   setupCameraSwipe();
+  setupStagePlanAtlas();
 }
 
 function togglePause(){

@@ -482,7 +482,7 @@ function loadLocation(idx){
     else addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style);
   });
   addStageElevator(elevatorX,elevatorZ,FLOOR_LEVELS[0],FLOOR_LEVELS[1]);
-  if(idx!==3) buildGothicRoomArchitecture(floorRooms,idx,stairSpecs,elevatorX,elevatorZ);
+  if(idx!==3&&idx!==2) buildGothicRoomArchitecture(floorRooms,idx,stairSpecs,elevatorX,elevatorZ);
   const shortcutX=ox+2.5*ROOM_WORLD_SIZE,shortcutZ=oz+ROOM_WORLD_SIZE;
   const generatedShortcuts=idx===3?window.BB_GENERATED_DUNGEON_LAYOUT?.shortcuts:null;
   if(generatedShortcuts&&generatedShortcuts.length){

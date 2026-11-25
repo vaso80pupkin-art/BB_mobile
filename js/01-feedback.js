@@ -329,3 +329,64 @@ function applyBrightness(){
   if(lightingRefs.glow)     lightingRefs.glow.material.opacity = 0.28 * skyBrightness;
   renderer.toneMappingExposure = 0.96 * gb;
 }
+
+
+let stagePlanOpenedFromPlaying=false;
+function getStagePlanNodePosition(index,floor,canvas){
+  const col=index%ROOM_COLS,row=Math.floor(index/ROOM_COLS);
+  return {x:155+col*((canvas.width-250)/(ROOM_COLS-1)),y:floor===0?canvas.height-150-row*58:150+row*58};
+}
+function drawStagePlan(){
+  const canvas=$('stagePlanCanvas'),ctx=canvas&&canvas.getContext('2d');
+  if(!ctx)return;
+  const plan=STAGE_ROUTE_PLANS[currentLocation]||STAGE_ROUTE_PLANS[0];
+  const width=canvas.width,height=canvas.height;
+  ctx.clearRect(0,0,width,height);
+  const sky=ctx.createLinearGradient(0,0,0,height);sky.addColorStop(0,'#182832');sky.addColorStop(0.48,'#0d1820');sky.addColorStop(1,'#11151b');ctx.fillStyle=sky;ctx.fillRect(0,0,width,height);
+  ctx.strokeStyle='rgba(137,166,176,.10)';ctx.lineWidth=1;
+  for(let x=35;x<width;x+=45){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
+  for(let y=25;y<height;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
+  ctx.font='bold 13px Arial,sans-serif';ctx.fillStyle='#8ea4ad';ctx.textAlign='left';ctx.fillText('ВЕРХНИЙ ЯРУС · +17',32,34);ctx.fillText('НИЖНИЙ ЯРУС · 0',32,height-24);
+  const drawEdge=(a,b,floor,index)=>{
+    const p1=getStagePlanNodePosition(a,floor,canvas),p2=getStagePlanNodePosition(b,floor,canvas),primary=index<4;
+    ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle=primary?'#d7bd78':'#6da3b8';ctx.lineWidth=primary?7:3;ctx.lineCap='round';ctx.setLineDash(primary?[]:[9,7]);ctx.stroke();ctx.setLineDash([]);
+  };
+  plan.floors.forEach((floorPlan,floor)=>floorPlan.edges.forEach((edge,index)=>drawEdge(edge[0],edge[1],floor,index)));
+  [[0,0,0,1],[2,0,2,1],[4,0,4,1]].forEach(([a,f1,b,f2],index)=>{
+    const p1=getStagePlanNodePosition(a,f1,canvas),p2=getStagePlanNodePosition(b,f2,canvas);
+    ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle=index===1?'#bc594f':'#b99568';ctx.lineWidth=3;ctx.setLineDash([5,6]);ctx.stroke();ctx.setLineDash([]);
+  });
+  for(let floor=0;floor<2;floor++){
+    for(let index=0;index<ROOMS_PER_FLOOR;index++){
+      const p=getStagePlanNodePosition(index,floor,canvas),label=(plan.floors[floor].labels||{})[index]||`комната ${String(index+1).padStart(2,'0')}`;
+      const active=floor===currentFloorIndex&&index===roomAtWorldPosition(hunter?.position.x||0,hunter?.position.z||0);
+      ctx.beginPath();ctx.arc(p.x,p.y,active?17:13,0,Math.PI*2);ctx.fillStyle=active?'#9de073':floor===currentFloorIndex?'#d7bd78':'#51636d';ctx.fill();ctx.strokeStyle=active?'#e9ffd1':'#dbe2e2';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='#071016';ctx.font='bold 10px Arial,sans-serif';ctx.textAlign='center';ctx.fillText(String(index+1),p.x,p.y+3.5);
+      ctx.fillStyle=active?'#e8f6db':'#b9c5ca';ctx.font='11px Arial,sans-serif';ctx.textAlign='center';ctx.fillText(label,p.x,p.y+(floor===0?30:-22));
+    }
+  }
+  ctx.fillStyle='#bc594f';ctx.font='bold 12px Arial,sans-serif';ctx.textAlign='left';ctx.fillText('обязательный вертикальный гейт',width-275,height/2-10);ctx.fillStyle='#a7b7be';ctx.font='11px Arial,sans-serif';ctx.fillText('лестницы / лифт / переход',width-275,height/2+10);
+  (plan.landmarks||[]).forEach(([label,node,floor],index)=>{const p=getStagePlanNodePosition(node,floor,canvas);ctx.fillStyle=index%2?'#d5a36f':'#d98566';ctx.beginPath();ctx.arc(p.x+(index%2?19:-19),p.y-((floor?1:-1)*16),4,0,Math.PI*2);ctx.fill();});
+}
+function openStagePlan(){
+  const overlay=$('stagePlanOverlay');if(!overlay)return;
+  stagePlanOpenedFromPlaying=gameMode===GameMode.PLAYING;
+  if(stagePlanOpenedFromPlaying)gameMode=GameMode.PAUSED;
+  $('stagePlanTitle').textContent=(STAGE_ROUTE_PLANS[currentLocation]||STAGE_ROUTE_PLANS[0]).title;
+  $('stagePlanSubtitle').textContent=`Этаж ${currentFloorIndex+1}/2 · ветки, вертикальные связи и обязательные гейты`;
+  drawStagePlan();overlay.classList.add('show');overlay.setAttribute('aria-hidden','false');
+}
+function closeStagePlan(){
+  const overlay=$('stagePlanOverlay');if(!overlay)return;
+  overlay.classList.remove('show');overlay.setAttribute('aria-hidden','true');
+  if(stagePlanOpenedFromPlaying&&gameMode===GameMode.PAUSED)gameMode=GameMode.PLAYING;
+  stagePlanOpenedFromPlaying=false;
+}
+function setupStagePlanAtlas(){
+  if(setupStagePlanAtlas._done)return;setupStagePlanAtlas._done=true;
+  const minimap=$('minimapCanvas'),close=$('stagePlanClose'),overlay=$('stagePlanOverlay');
+  if(minimap)minimap.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openStagePlan();});
+  if(close)close.addEventListener('click',closeStagePlan);
+  if(overlay)overlay.addEventListener('click',e=>{if(e.target===overlay)closeStagePlan();});
+  window.addEventListener('resize',()=>{if(overlay&&overlay.classList.contains('show'))drawStagePlan();});
+}

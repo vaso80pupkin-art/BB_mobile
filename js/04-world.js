@@ -419,17 +419,9 @@ function getGeneratedDungeonWallColliders(layout){
   return boxes;
 }
 function getStageRoomEdges(locationIndex,floorIndex){
-  const edges=[[0,1],[1,2],[2,3],[3,4],[5,6],[6,7],[7,8],[8,9],[0,5],[2,7],[4,9]];
-  const variants=[
-    [[1,6],[3,8]],
-    [[1,6],[0,6],[4,8]],
-    [[0,6],[2,8],[1,7]],
-    [[2,8],[1,6],[3,9]]
-  ];
-  const variant=variants[(locationIndex+floorIndex)%variants.length];
-  const open=new Set(edges.map(([a,b])=>stageEdgeKey(a,b)));
-  variant.forEach(([a,b])=>open.add(stageEdgeKey(a,b)));
-  return open;
+  const plan=STAGE_ROUTE_PLANS[locationIndex]||STAGE_ROUTE_PLANS[0];
+  const floorPlan=plan.floors[floorIndex]||plan.floors[0];
+  return new Set(floorPlan.edges.map(([a,b])=>stageEdgeKey(a,b)));
 }
 
 function buildStageFloor(locationIndex,floorIndex,ox,oz){

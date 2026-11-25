@@ -37,7 +37,7 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 .frenzy-bg{width:280px;height:6px;background:linear-gradient(180deg,#12040a,#080204);border:1px solid #380c30;border-radius:2px;margin-top:3px;overflow:hidden}
 .frenzy-fill{background:linear-gradient(90deg,#8a008a,#cc33cc);height:100%;width:0%;transition:width 0.4s}
 
-.minimap{position:absolute;top:76px;left:15px;width:110px;height:110px;background:rgba(0,0,0,0.72);border:2px solid #4a3418;border-radius:6px;pointer-events:none;z-index:15;overflow:hidden}
+.minimap{position:absolute;top:76px;left:15px;width:110px;height:110px;background:rgba(0,0,0,0.72);border:2px solid #4a3418;border-radius:6px;pointer-events:auto;cursor:pointer;z-index:15;overflow:hidden}
 .minimap-canvas{width:100%;height:100%}
 
 .level-box{position:absolute;top:196px;left:15px;background:rgba(8,4,12,0.92);border:2px solid #4a3278;border-radius:20px;padding:5px 16px;color:#a878e8;font-weight:bold;letter-spacing:2px;font-size:13px;z-index:15}
@@ -421,3 +421,15 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
   .menu-footer{font-size:8px;letter-spacing:2px}
 }
 @media (prefers-reduced-motion:reduce){#canvas-container::after{animation:none}}
+
+/* Route atlas: a readable overview of branches and vertical links, opened from the minimap. */
+.stage-plan-hint{position:absolute;top:190px;left:15px;z-index:16;color:#c9b983;background:rgba(8,10,14,.78);border:1px solid rgba(201,185,131,.45);border-radius:3px;padding:5px 8px;font:10px Cinzel,serif;letter-spacing:.04em;opacity:0;pointer-events:none;transition:opacity .2s}
+.minimap:hover + .stage-plan-hint,.minimap:focus-within + .stage-plan-hint{opacity:1}
+.stage-plan-overlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(2,4,8,.86);backdrop-filter:blur(5px)}
+.stage-plan-overlay.show{display:flex}
+.stage-plan-card{position:relative;width:min(94vw,1080px);max-height:92vh;padding:22px 24px 16px;border:1px solid #7f6d48;border-radius:5px;background:linear-gradient(145deg,rgba(20,27,34,.98),rgba(8,12,18,.98));box-shadow:0 18px 60px #000;color:#d5d9dd}
+.stage-plan-close{position:absolute;right:13px;top:7px;border:0;background:none;color:#d7c18a;font-size:34px;line-height:1;cursor:pointer}
+.stage-plan-heading{padding:0 38px 8px 4px}.stage-plan-kicker{color:#c9b983;font:11px Cinzel,serif;letter-spacing:.2em}.stage-plan-heading h2{margin:5px 0 2px;color:#eef1f3;font:24px Cinzel,serif}.stage-plan-heading p{margin:0;color:#9ba8b3;font:12px Arial,sans-serif}
+#stagePlanCanvas{display:block;width:100%;height:auto;max-height:70vh;background:radial-gradient(ellipse at center,#1a2a32,#090e14 72%);border:1px solid rgba(125,151,160,.32)}
+.stage-plan-legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 3px 0;color:#aab4bb;font:11px Arial,sans-serif}.stage-plan-legend span{display:flex;align-items:center;gap:5px}.stage-plan-legend i{display:inline-block;width:16px;height:4px;border-radius:3px}.legend-main{background:#d7bd78}.legend-branch{background:#6da3b8}.legend-gate{background:#bc594f}.legend-player{width:9px!important;height:9px!important;border-radius:50%!important;background:#9de073}
+@media (max-width:700px){.stage-plan-hint{top:154px;left:10px;font-size:8px}.stage-plan-card{width:96vw;padding:14px 12px 11px}.stage-plan-heading h2{font-size:18px}.stage-plan-heading p{font-size:10px}.stage-plan-legend{gap:8px;font-size:9px}}

@@ -515,10 +515,54 @@ function updateCathedralGroundTierAtmosphere(time){
 
 function resetCathedralGroundTierAtmosphere(){cathedralGroundTierAtmosphere=null;}
 
+function buildMountainCanyonVisuals(ox,oz){
+  const group=new THREE.Group(),route=getMountainRouteLayout(ox,oz),random=seededRandom(0x91c4a7),surface=createSurfaceTextures();
+  const rockMaterial=new THREE.MeshStandardMaterial({color:0x394b54,map:surface.wall,normalMap:surface.wallNormal,normalScale:new THREE.Vector2(0.72,0.72),roughnessMap:surface.wallRoughness,roughness:0.98,metalness:0.02});
+  const snowMaterial=new THREE.MeshStandardMaterial({color:0x9aaeba,roughness:0.86,metalness:0.01});
+  const rockGeometry=new THREE.DodecahedronGeometry(1,1),rocks=[];
+  const edgePoints=[];
+  for(let i=0;i<30;i++){
+    const t=i/29,z=stageBounds.minZ+8+t*(STAGE_WORLD_DEPTH-16),side=i%2?-1:1;
+    edgePoints.push({x:side*(STAGE_WORLD_WIDTH/2-8)+((i%3)-1)*2,z,y:2.8+random()*3.8,sx:2.8+random()*2.6,sy:2.5+random()*4.2,sz:2.0+random()*2.4});
+  }
+  for(let i=0;i<12;i++){
+    const angle=random()*Math.PI*2,radius=18+random()*28;
+    edgePoints.push({x:route.valleyX+Math.cos(angle)*radius,z:route.valleyZ+Math.sin(angle)*radius,y:1.2+random()*2.5,sx:2+random()*2.5,sy:1.3+random()*2.8,sz:2+random()*2.5});
+  }
+  const rockMesh=new THREE.InstancedMesh(rockGeometry,rockMaterial,edgePoints.length),snowMesh=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,6),snowMaterial,edgePoints.length),dummy=new THREE.Object3D();
+  edgePoints.forEach((point,index)=>{
+    dummy.position.set(point.x,point.y,point.z);dummy.rotation.set(random()*0.2,random()*Math.PI,random()*0.18);dummy.scale.set(point.sx,point.sy,point.sz);dummy.updateMatrix();rockMesh.setMatrixAt(index,dummy.matrix);
+    dummy.position.set(point.x,point.y+point.sy*0.72,point.z);dummy.rotation.set(0,random()*Math.PI,0);dummy.scale.set(point.sx*0.62,point.sy*0.34,point.sz*0.62);dummy.updateMatrix();snowMesh.setMatrixAt(index,dummy.matrix);
+  });
+  [rockMesh,snowMesh].forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=true;group.add(mesh);});
+
+  const trailMaterial=new THREE.MeshStandardMaterial({color:0x647681,roughness:0.9,metalness:0.04});
+  const trailGeometry=new THREE.BoxGeometry(3.2,0.16,1.35),trailPoints=[];
+  const addTrail=(a,b,count)=>{for(let i=0;i<count;i++){const t=(i+0.5)/count;trailPoints.push({x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,y:a.y+(b.y-a.y)*t,angle:Math.atan2(b.x-a.x,b.z-a.z)});}};
+  addTrail({x:route.valleyX,y:0.12,z:route.valleyZ},{x:route.wellX,y:0.12,z:route.wellZ},10);
+  addTrail({x:route.valleyX,y:0.12,z:route.valleyZ},{x:route.bridgeX,y:FLOOR_HEIGHT+0.12,z:route.bridgeZ},12);
+  addTrail({x:route.spiralX,y:0.12,z:route.spiralZ},{x:route.gateX,y:0.12,z:route.gateZ},13);
+  const trailMesh=new THREE.InstancedMesh(trailGeometry,trailMaterial,trailPoints.length);
+  trailPoints.forEach((point,index)=>{dummy.position.set(point.x,point.y,point.z);dummy.rotation.set(0,point.angle,0);dummy.scale.set(1+random()*0.35,1,0.72+random()*0.35);dummy.updateMatrix();trailMesh.setMatrixAt(index,dummy.matrix);});
+  trailMesh.instanceMatrix.needsUpdate=true;trailMesh.castShadow=false;trailMesh.receiveShadow=true;group.add(trailMesh);
+
+  const ruinMaterial=new THREE.MeshStandardMaterial({color:0x46545b,map:surface.wall,normalMap:surface.wallNormal,roughnessMap:surface.wallRoughness,roughness:0.95});
+  const ruinX=stageBounds.maxX-14,ruinZ=stageBounds.minZ+18;
+  const ruin=new THREE.Group();
+  const ruinPosts=new THREE.InstancedMesh(new THREE.BoxGeometry(1.8,9,2.2),ruinMaterial,3);
+  [[ruinX-8,ruinZ],[ruinX,ruinZ-2],[ruinX+8,ruinZ+1]].forEach(([x,z],index)=>{dummy.position.set(x,4.5,z);dummy.rotation.set(0,(index-1)*0.08,0);dummy.scale.set(1,0.8+random()*0.35,1);dummy.updateMatrix();ruinPosts.setMatrixAt(index,dummy.matrix);});
+  ruinPosts.instanceMatrix.needsUpdate=true;ruin.add(ruinPosts);
+  const arch=new THREE.Mesh(new THREE.TorusGeometry(5.4,0.75,7,16,Math.PI),ruinMaterial);arch.position.set(ruinX,8.1,ruinZ-0.9);arch.rotation.set(Math.PI/2,0,0);ruin.add(arch);group.add(ruin);
+  const routeLights=[];
+  [[route.valleyX+7,route.valleyZ+1,0xff9a4d],[route.wellX,route.wellZ,0x73a9c5],[route.gateX,route.gateZ,0xb8cce0]].forEach(([x,z,color])=>{const light=new THREE.PointLight(color,0.72,16,2);light.position.set(x,2.1,z);light.castShadow=false;group.add(light);routeLights.push(light);});
+  group.userData.routeLights=routeLights;
+  if(group.children.length){scene.add(group);envObjects.push({mesh:group});}
+}
+
 function buildRegionalVisuals(locationIndex,floorRooms,ox,oz){
   if(!scene||!floorRooms)return;
   if(locationIndex===0)buildYharnamStreetVisuals(floorRooms);
   else if(locationIndex===1)buildCathedralInteriorVisuals(floorRooms);
-  else if(locationIndex===2)buildMountainVisualAccents(ox,oz);
+  else if(locationIndex===2){buildMountainVisualAccents(ox,oz);buildMountainCanyonVisuals(ox,oz);}
   else if(locationIndex===3)buildNightmareCastleVisuals(floorRooms);
 }
