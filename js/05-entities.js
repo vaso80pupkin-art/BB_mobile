@@ -339,6 +339,52 @@ function setupMenuScene(){
   applyBrightness();
 }
 
+function buildGothicRoomArchitecture(floorRooms,locationIndex,stairSpecs,elevatorX,elevatorZ){
+  const rooms=floorRooms.flat().filter(room=>{
+    if(locationIndex===0&&room.floorIndex===0&&room.roomIndex===0)return false;
+    const cx=room.roomX+ROOM_WORLD_SIZE/2,cz=room.roomZ+ROOM_WORLD_SIZE/2;
+    const overlaps=(x,z)=>Math.abs(cx-x)<ROOM_WORLD_SIZE*0.48&&Math.abs(cz-z)<ROOM_WORLD_SIZE*0.48;
+    return !stairSpecs.some(spec=>overlaps(spec.x,spec.z))&&!overlaps(elevatorX,elevatorZ);
+  });
+  if(!rooms.length)return;
+  const group=new THREE.Group(),palette=getLocationVisualPalette(locationIndex),dummy=new THREE.Object3D();
+  const spring=9.2,archHeight=4.4,width=ROOM_WORLD_SIZE-cellSize*1.5;
+  const archCurve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-width/2,0,0),new THREE.Vector3(-width*0.46,archHeight*0.58,0),
+    new THREE.Vector3(-width*0.25,archHeight*0.91,0),new THREE.Vector3(0,archHeight,0),
+    new THREE.Vector3(width*0.25,archHeight*0.91,0),new THREE.Vector3(width*0.46,archHeight*0.58,0),
+    new THREE.Vector3(width/2,0,0)
+  ]);
+  const archGeometry=new THREE.TubeGeometry(archCurve,32,0.22,7,false);
+  const archMaterial=new THREE.MeshStandardMaterial({color:palette.ceiling,roughness:0.96,metalness:0.01});
+  const arches=new THREE.InstancedMesh(archGeometry,archMaterial,rooms.length*2);
+  let archIndex=0;
+  rooms.forEach(room=>{
+    for(let axis=0;axis<2;axis++){
+      dummy.position.set(room.roomX+ROOM_WORLD_SIZE/2,room.floorY+spring,room.roomZ+ROOM_WORLD_SIZE/2);
+      dummy.rotation.set(0,axis*Math.PI/2,0);dummy.scale.set(1,1,1);dummy.updateMatrix();
+      arches.setMatrixAt(archIndex++,dummy.matrix);
+    }
+  });
+  arches.instanceMatrix.needsUpdate=true;arches.castShadow=true;arches.receiveShadow=true;arches.frustumCulled=false;group.add(arches);
+
+  const columnHeight=spring-0.12;
+  const columnGeometry=new THREE.CylinderGeometry(0.36,0.58,columnHeight,10,1);
+  const columnMaterial=new THREE.MeshStandardMaterial({color:palette.wall,roughness:0.95,metalness:0.01});
+  const columns=new THREE.InstancedMesh(columnGeometry,columnMaterial,rooms.length*4);
+  let columnIndex=0;
+  rooms.forEach(room=>{
+    const inset=cellSize*0.52;
+    for(const dx of [inset,ROOM_WORLD_SIZE-inset])for(const dz of [inset,ROOM_WORLD_SIZE-inset]){
+      dummy.position.set(room.roomX+dx,room.floorY+columnHeight/2,room.roomZ+dz);
+      dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();
+      columns.setMatrixAt(columnIndex++,dummy.matrix);
+    }
+  });
+  columns.instanceMatrix.needsUpdate=true;columns.castShadow=true;columns.receiveShadow=true;columns.frustumCulled=false;group.add(columns);
+  scene.add(group);envObjects.push({mesh:group});
+}
+
 function loadLocation(idx){
   idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
   if(!canEnterLocation(idx)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return false;}
@@ -386,6 +432,7 @@ function loadLocation(idx){
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true,floorSegmentSpacing);
   stairSpecs.forEach(spec=>addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style));
   addStageElevator(elevatorX,elevatorZ,FLOOR_LEVELS[0],FLOOR_LEVELS[1]);
+  buildGothicRoomArchitecture(floorRooms,idx,stairSpecs,elevatorX,elevatorZ);
   const shortcutX=ox+2.5*ROOM_WORLD_SIZE,shortcutZ=oz+ROOM_WORLD_SIZE;
   for(let floor=0;floor<FLOOR_LEVELS.length;floor++) addShortcutGate(shortcutX,shortcutZ,FLOOR_LEVELS[floor],idx,floor);
   if(idx===0) buildOedonChapelFoyer(floorRooms[0][0],FLOOR_LEVELS[0]);
