@@ -375,10 +375,15 @@ function buildOedonChapelFoyer(room,floorY){
     const roseGem=new THREE.Mesh(new THREE.SphereGeometry(0.075,8,6),new THREE.MeshBasicMaterial({color:0xd94d56,toneMapped:false}));roseGem.position.set(0,4.75,0.49);window.add(roseGem);
     addLeadStroke([[-1.72,0.36],[-1.72,4.1],[-1.58,5.25],[-1.12,6.35],[0,6.72],[1.12,6.35],[1.58,5.25],[1.72,4.1],[1.72,0.36]],0.045);
     const glassGlow=new THREE.PointLight(0x779bd0,0.42,10,2);glassGlow.position.set(0,4.1,0.22);registerGraphicsPointLight(glassGlow);window.add(glassGlow);
-    const moonRay=new THREE.SpotLight(0x86a7d3,1.35,30,Math.PI/7,0.72,1.6);
-    moonRay.position.set(0,4.1,0.26);moonRay.target.position.set(0,-2.4,12);window.add(moonRay);window.add(moonRay.target);
-    const shaft=new THREE.Mesh(new THREE.ConeGeometry(2.25,12,16,1,true),new THREE.MeshBasicMaterial({color:0x8aaad4,transparent:true,opacity:0.055,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,fog:true}));
-    shaft.rotation.x=Math.PI/2;shaft.position.set(0,3.1,6.25);shaft.renderOrder=1;window.add(shaft);
+    const beamStart=new THREE.Vector3(0,4.1,0.26);
+    const beamEnd=new THREE.Vector3(cx+2.4-x,-1.72,cz+1-windowZ);
+    const beamDirection=beamEnd.clone().sub(beamStart),beamLength=beamDirection.length();
+    const moonRay=new THREE.SpotLight(0x86a7d3,1.35,beamLength+2,Math.PI/7,0.72,1.6);
+    moonRay.position.copy(beamStart);moonRay.target.position.copy(beamEnd);window.add(moonRay);window.add(moonRay.target);
+    const shaft=new THREE.Mesh(new THREE.ConeGeometry(3.1,beamLength,16,1,true),new THREE.MeshBasicMaterial({color:0x8aaad4,transparent:true,opacity:0.055,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,fog:true}));
+    shaft.position.copy(beamStart).add(beamEnd).multiplyScalar(0.5);
+    shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),beamDirection.normalize());
+    shaft.renderOrder=1;window.add(shaft);
     window.position.set(x,floorY+1.9,windowZ);group.add(window);
   });
 

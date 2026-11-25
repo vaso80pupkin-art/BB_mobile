@@ -110,8 +110,12 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 #btnTransform .target-lock-icon{display:none}
 #btnTransform.target-available .weapon-switch-icon{display:none}
 #btnTransform.target-available .target-lock-icon{display:block}
-#btnTransform.locked{background:radial-gradient(circle,rgba(202,143,43,.98),rgba(100,52,10,.98));border-color:#ffe18a;box-shadow:0 0 24px rgba(255,184,55,.92),inset 0 0 16px rgba(255,233,157,.35)}
+#btnTransform.target-available{background:radial-gradient(circle,rgba(112,72,20,.96),rgba(44,28,10,.98));border-color:#e5ae45;box-shadow:0 0 16px rgba(255,184,55,.68),inset 0 0 12px rgba(255,233,157,.22);animation:targetReadyPulse 1.15s ease-in-out infinite}
+#btnTransform.target-available .target-lock-icon{fill:#ffe7a1;filter:drop-shadow(0 0 5px rgba(255,220,130,.95))}
+#btnTransform.locked{background:radial-gradient(circle,rgba(202,143,43,.98),rgba(100,52,10,.98));border-color:#ffe18a;box-shadow:0 0 24px rgba(255,184,55,.92),inset 0 0 16px rgba(255,233,157,.35);animation:targetLockedPulse .55s ease-in-out infinite}
 #btnTransform.locked .target-lock-icon{fill:#fff4c5;filter:drop-shadow(0 0 5px rgba(255,233,157,.9))}
+@keyframes targetReadyPulse{0%,100%{box-shadow:0 0 12px rgba(255,184,55,.55),inset 0 0 8px rgba(255,233,157,.16)}50%{box-shadow:0 0 22px rgba(255,184,55,.9),inset 0 0 15px rgba(255,233,157,.32)}}
+@keyframes targetLockedPulse{0%,100%{box-shadow:0 0 18px rgba(255,184,55,.72),inset 0 0 12px rgba(255,233,157,.25)}50%{box-shadow:0 0 30px rgba(255,214,100,1),inset 0 0 19px rgba(255,243,190,.48)}}
 .charge-indicator{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:50px;height:4px;background:rgba(0,0,0,0.85);border-radius:2px;overflow:hidden;opacity:0;transition:opacity 0.2s}
 .charge-indicator.show{opacity:1}
 .charge-bar{height:100%;background:linear-gradient(90deg,#e89540,#dd3838);width:0%;transition:width 0.05s linear}

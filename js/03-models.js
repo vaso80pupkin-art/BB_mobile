@@ -120,6 +120,11 @@ function mountHunterModel(){
   if(hunterRig){
     modelRoot.scale.setScalar(2);
     modelRoot.add(hunterRig.root);
+    hunterRig.root.updateMatrixWorld(true);
+    const rigBounds=new THREE.Box3().setFromObject(hunterRig.parts[0]);
+    const rigCenter=rigBounds.getCenter(new THREE.Vector3());
+    hunterRig.root.position.x-=rigCenter.x;
+    hunterRig.root.position.z-=rigCenter.z;
     model = modelRoot;
   }else{
     model = fitVisualModel(hunterModelSource, 10.5, 5.8, true);
