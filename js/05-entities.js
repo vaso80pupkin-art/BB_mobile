@@ -385,9 +385,51 @@ function buildGothicRoomArchitecture(floorRooms,locationIndex,stairSpecs,elevato
   scene.add(group);envObjects.push({mesh:group});
 }
 
+let generatedDungeonLoadToken=0;
+function loadGeneratedDungeonArt(){
+  if(!THREE.GLTFLoader||!window.BB_GENERATED_DUNGEON_LAYOUT) return;
+  const loadToken=generatedDungeonLoadToken;
+  const loader=new THREE.GLTFLoader();
+  loader.load('./assets/levelgen/bb_gothic_dungeon.glb',gltf=>{
+    if(loadToken!==generatedDungeonLoadToken||currentLocation!==3||!scene) return;
+    const layout=window.BB_GENERATED_DUNGEON_LAYOUT;
+    const legacyBatches=wallMeshes.filter(mesh=>mesh&&mesh.userData&&mesh.userData.isRoomBatch);
+    const legacyColliders=new Set(legacyBatches.flatMap(mesh=>mesh.userData.colliders||[]));
+    const shared=collectSharedWorldResources(),disposed={geometries:new Set(),materials:new Set()};
+    legacyBatches.forEach(mesh=>{
+      scene.remove(mesh);disposeWorldObjectResources(mesh,shared,disposed);
+    });
+    wallMeshes=wallMeshes.filter(mesh=>!legacyBatches.includes(mesh));
+    floorMeshes.forEach(mesh=>{
+      scene.remove(mesh);disposeWorldObjectResources(mesh,shared,disposed);
+    });
+    floorMeshes=[];
+    wallColliders=wallColliders.filter(box=>!legacyColliders.has(box));
+    wallColliders.push(...getGeneratedDungeonWallColliders(layout));
+    const root=gltf.scene;
+    root.traverse(object=>{
+      if(object.name&&object.name.indexOf('Locked_Shortcut_Gates')>=0){object.visible=false;return;}
+      if(object.isMesh){object.castShadow=graphicsQuality==='ultra';object.receiveShadow=true;}
+    });
+    scene.add(root);envObjects.push({mesh:root});
+    new THREE.TextureLoader().load('./assets/levelgen/textures/stone_ao.png',aoMap=>{
+      if(loadToken!==generatedDungeonLoadToken||currentLocation!==3) return;
+      aoMap.flipY=false;aoMap.encoding=THREE.LinearEncoding;
+      root.traverse(object=>{
+        if(!object.isMesh||!object.geometry.attributes.uv) return;
+        object.geometry.setAttribute('uv2',object.geometry.attributes.uv);
+        const materials=Array.isArray(object.material)?object.material:[object.material];
+        materials.forEach(material=>{material.aoMap=aoMap;material.aoMapIntensity=0.72;material.needsUpdate=true;});
+      });
+    });
+    rebuildWallCollisionGrid();
+  },undefined,error=>console.warn('[BB] Gothic dungeon GLB load failed; keeping the procedural fallback.',error));
+}
+
 function loadLocation(idx){
   idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
   if(!canEnterLocation(idx)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return false;}
+  generatedDungeonLoadToken++;
   clearWorld();
   gameMode = GameMode.PLAYING;
   currentLocation = idx;
@@ -407,14 +449,19 @@ function loadLocation(idx){
   const ox=stageBounds.minX,oz=stageBounds.minZ;
   const mountainRoute=idx===2?getMountainRouteLayout(ox,oz):null;
   const floorRooms=[buildStageFloor(idx,0,ox,oz),buildStageFloor(idx,1,ox,oz)];
-  const stairSpecs=[
-    {col:2,row:0,run:28,width:4.8,style:'stone'},
-    {col:0,row:1,run:25,width:4.6,style:'wood'},
-    {col:4,row:0,run:28,width:3.4,style:'rope'}
-  ];
+  const generatedStaircases=idx===3?window.BB_GENERATED_DUNGEON_LAYOUT?.staircases:null;
+  const stairSpecs=generatedStaircases&&generatedStaircases.length
+    ?generatedStaircases.map(stair=>({...stair,style:'stone'}))
+    :[
+      {col:2,row:0,run:28,width:4.8,style:'stone'},
+      {col:0,row:1,run:25,width:4.6,style:'wood'},
+      {col:4,row:0,run:28,width:3.4,style:'rope'}
+    ];
   const stairHoles=stairSpecs.map(spec=>{
-    const roomX=ox+spec.col*ROOM_WORLD_SIZE,roomZ=oz+spec.row*ROOM_WORLD_SIZE;
-    spec.x=roomX+ROOM_WORLD_SIZE/2;spec.z=roomZ+12;
+    if(spec.col!==undefined){
+      const roomX=ox+spec.col*ROOM_WORLD_SIZE,roomZ=oz+spec.row*ROOM_WORLD_SIZE;
+      spec.x=roomX+ROOM_WORLD_SIZE/2;spec.z=roomZ+12;
+    }
     return {x0:spec.x-spec.width/2-0.8,x1:spec.x+spec.width/2+0.8,z0:spec.z-1,z1:spec.z+spec.run+1};
   });
   const elevatorX=ox+3*ROOM_WORLD_SIZE+ROOM_WORLD_SIZE/2;
@@ -430,11 +477,19 @@ function loadLocation(idx){
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]-1.5,upperFloorHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true,floorSegmentSpacing);
-  stairSpecs.forEach(spec=>addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style));
+  stairSpecs.forEach(spec=>{
+    if(generatedStaircases&&generatedStaircases.length) registerGeneratedDungeonStaircase(spec);
+    else addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style);
+  });
   addStageElevator(elevatorX,elevatorZ,FLOOR_LEVELS[0],FLOOR_LEVELS[1]);
-  buildGothicRoomArchitecture(floorRooms,idx,stairSpecs,elevatorX,elevatorZ);
+  if(idx!==3) buildGothicRoomArchitecture(floorRooms,idx,stairSpecs,elevatorX,elevatorZ);
   const shortcutX=ox+2.5*ROOM_WORLD_SIZE,shortcutZ=oz+ROOM_WORLD_SIZE;
-  for(let floor=0;floor<FLOOR_LEVELS.length;floor++) addShortcutGate(shortcutX,shortcutZ,FLOOR_LEVELS[floor],idx,floor);
+  const generatedShortcuts=idx===3?window.BB_GENERATED_DUNGEON_LAYOUT?.shortcuts:null;
+  if(generatedShortcuts&&generatedShortcuts.length){
+    generatedShortcuts.forEach(gate=>addShortcutGate(gate.world_x,gate.world_z,FLOOR_LEVELS[gate.floor],idx,gate.floor,{farSideOnly:gate.opens_from==='far_side'}));
+  }else{
+    for(let floor=0;floor<FLOOR_LEVELS.length;floor++) addShortcutGate(shortcutX,shortcutZ,FLOOR_LEVELS[floor],idx,floor);
+  }
   if(idx===0) buildOedonChapelFoyer(floorRooms[0][0],FLOOR_LEVELS[0]);
   scatterCryptAtmosphere(floorRooms,idx);
   buildLocationLandmarks(idx,ox,oz);
@@ -444,6 +499,7 @@ function loadLocation(idx){
   createDistantHorizon(idx);
   rebuildWallCollisionGrid();
   spawnDustMotes(60);
+  if(idx===3) loadGeneratedDungeonArt();
   const startRoom=floorRooms[0][0];
   const spawnX=startRoom.roomX+cellSize*3.5;
   const spawnZ=startRoom.roomZ+cellSize*3.5;

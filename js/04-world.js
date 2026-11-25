@@ -139,6 +139,17 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
   return {x0:x-width/2-0.65,x1:x+width/2+0.65,z0:z-0.8,z1:z+run+0.8};
 }
 
+function registerGeneratedDungeonStaircase(stair){
+  const {x,z,lower_y:lowerY,upper_y:upperY,run,width}=stair;
+  stairs.push({x,z,lowerY,upperY,run,width,style:'stone'});
+  for(const side of [-1,1]){
+    const railX=x+side*(width/2+0.25),halfWidth=0.225;
+    wallColliders.push({minX:railX-halfWidth,maxX:railX+halfWidth,minY:lowerY,maxY:upperY,
+      minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,
+      w:halfWidth*2,h:upperY-lowerY,d:run+0.4,floorY:lowerY});
+  }
+}
+
 function zOffset(t,run){return t*run;}
 
 function seededRandom(seed){
@@ -377,6 +388,36 @@ function buildOedonChapelFoyer(room,floorY){
 }
 
 function stageEdgeKey(a,b){ return a<b ? `${a}-${b}` : `${b}-${a}`; }
+function getGeneratedDungeonWallColliders(layout){
+  if(!layout||!layout.world||!Array.isArray(layout.layers)) return [];
+  const {world}=layout,cell=world.cell_size,width=world.width_cells,depth=world.depth_cells;
+  const ox=world.origin_x,oz=world.origin_z,wallHeight=world.wall_height;
+  const bridgeCells=new Set((layout.bridge_cells||[]).map(([x,z])=>`${x}:${z}`));
+  const boxes=[];
+  layout.layers.forEach((layer,floorIndex)=>{
+    const grid=layer.grid,floorY=layer.y;
+    for(let z=0;z<depth;z++) for(let x=0;x<width;x++){
+      if(grid[z][x]!==0) continue;
+      const wx=ox+(x+0.5)*cell,wz=oz+(z+0.5)*cell,isBridge=floorIndex===1&&bridgeCells.has(`${x}:${z}`);
+      for(const [dx,dz] of [[0,-1],[0,1],[-1,0],[1,0]]){
+        const nx=x+dx,nz=z+dz;
+        if(nx>=0&&nx<width&&nz>=0&&nz<depth&&grid[nz][nx]===0) continue;
+        let cx,cz,w,d,h;
+        if(isBridge){
+          h=1.1;
+          if(dx===0){cx=wx;cz=wz+dz*(cell*0.5-0.2);w=cell;d=0.4;}
+          else{cx=wx+dx*(cell*0.5-0.2);cz=wz;w=0.4;d=cell;}
+        }else{
+          h=wallHeight;
+          if(dx===0){cx=wx;cz=wz+dz*(cell*0.5-0.12);w=cell+0.12;d=0.48;}
+          else{cx=wx+dx*(cell*0.5-0.12);cz=wz;w=0.48;d=cell+0.12;}
+        }
+        boxes.push({minX:cx-w/2,maxX:cx+w/2,minY:floorY,maxY:floorY+h,minZ:cz-d/2,maxZ:cz+d/2,cx,cy:floorY+h/2,cz,w,h,d,floorY});
+      }
+    }
+  });
+  return boxes;
+}
 function getStageRoomEdges(locationIndex,floorIndex){
   const edges=[[0,1],[1,2],[2,3],[3,4],[5,6],[6,7],[7,8],[8,9],[0,5],[2,7],[4,9]];
   const variants=[
@@ -393,32 +434,36 @@ function getStageRoomEdges(locationIndex,floorIndex){
 
 function buildStageFloor(locationIndex,floorIndex,ox,oz){
   const floorY=FLOOR_LEVELS[floorIndex],rooms=[],openEdges=getStageRoomEdges(locationIndex,floorIndex);
+  const generatedLayout=locationIndex===3?window.BB_GENERATED_DUNGEON_LAYOUT:null;
   for(let row=0;row<ROOM_ROWS;row++) for(let col=0;col<ROOM_COLS;col++){
     const roomIndex=row*ROOM_COLS+col;
     const seed=(locationIndex+1)*7919+(floorIndex+1)*104729+(roomIndex+1)*31337;
-    const grid=generateMaze(mazeSize,seed);
-    if(col>0&&openEdges.has(stageEdgeKey(roomIndex,roomIndex-1))) carveMazeRoute(grid,'west');
-    if(col<ROOM_COLS-1&&openEdges.has(stageEdgeKey(roomIndex,roomIndex+1))) carveMazeRoute(grid,'east');
-    if(row>0&&openEdges.has(stageEdgeKey(roomIndex,roomIndex-ROOM_COLS))) carveMazeRoute(grid,'north');
-    if(row<ROOM_ROWS-1&&openEdges.has(stageEdgeKey(roomIndex,roomIndex+ROOM_COLS))) carveMazeRoute(grid,'south');
-    const stairwell=(row===0&&(col===2||col===4))||(row===1&&col===0);
-    if(stairwell){
-      const stairCol=Math.floor(mazeSize/2);
-      for(let y=1;y<mazeSize-1;y++) grid[y][stairCol]=0;
-      for(let y=1;y<mazeSize-1;y++) if(stairCol>1&&stairCol<mazeSize-2) grid[y][stairCol-1]=0;
-    }
-    if(row===1&&col===3){
-      const mid=Math.floor(mazeSize/2);
-      for(let i=1;i<mazeSize-1;i++){ grid[mid][i]=0; grid[i][mid]=0; }
-      for(let y=mid-1;y<=mid+1;y++) for(let x=mid-1;x<=mid+1;x++) grid[y][x]=0;
-    }
-    if(floorIndex===0 && roomIndex===0){
-      for(let y=1;y<=mazeSize-2;y++) for(let x=1;x<=mazeSize-2;x++) grid[y][x]=0;
-    }
-    if(floorIndex===1 && roomIndex===ROOMS_PER_FLOOR-1){
-      const mid=Math.floor(mazeSize/2);
-      for(let y=mid-2;y<=mid+2;y++) for(let x=mid-2;x<=mid+2;x++) grid[y][x]=0;
-      for(let y=mid-1;y<=mid+1;y++) for(let x=0;x<=mid;x++) grid[y][x]=0;
+    const authored=generatedLayout&&generatedLayout.rooms?.[floorIndex]?.[roomIndex]?.grid;
+    const grid=authored?authored.map(line=>line.slice()):generateMaze(mazeSize,seed);
+    if(!authored){
+      if(col>0&&openEdges.has(stageEdgeKey(roomIndex,roomIndex-1))) carveMazeRoute(grid,'west');
+      if(col<ROOM_COLS-1&&openEdges.has(stageEdgeKey(roomIndex,roomIndex+1))) carveMazeRoute(grid,'east');
+      if(row>0&&openEdges.has(stageEdgeKey(roomIndex,roomIndex-ROOM_COLS))) carveMazeRoute(grid,'north');
+      if(row<ROOM_ROWS-1&&openEdges.has(stageEdgeKey(roomIndex,roomIndex+ROOM_COLS))) carveMazeRoute(grid,'south');
+      const stairwell=(row===0&&(col===2||col===4))||(row===1&&col===0);
+      if(stairwell){
+        const stairCol=Math.floor(mazeSize/2);
+        for(let y=1;y<mazeSize-1;y++) grid[y][stairCol]=0;
+        for(let y=1;y<mazeSize-1;y++) if(stairCol>1&&stairCol<mazeSize-2) grid[y][stairCol-1]=0;
+      }
+      if(row===1&&col===3){
+        const mid=Math.floor(mazeSize/2);
+        for(let i=1;i<mazeSize-1;i++){ grid[mid][i]=0; grid[i][mid]=0; }
+        for(let y=mid-1;y<=mid+1;y++) for(let x=mid-1;x<=mid+1;x++) grid[y][x]=0;
+      }
+      if(floorIndex===0 && roomIndex===0){
+        for(let y=1;y<=mazeSize-2;y++) for(let x=1;x<=mazeSize-2;x++) grid[y][x]=0;
+      }
+      if(floorIndex===1 && roomIndex===ROOMS_PER_FLOOR-1){
+        const mid=Math.floor(mazeSize/2);
+        for(let y=mid-2;y<=mid+2;y++) for(let x=mid-2;x<=mid+2;x++) grid[y][x]=0;
+        for(let y=mid-1;y<=mid+1;y++) for(let x=0;x<=mid;x++) grid[y][x]=0;
+      }
     }
     const roomX=ox+col*ROOM_WORLD_SIZE,roomZ=oz+row*ROOM_WORLD_SIZE;
     const bounds={minX:roomX,minZ:roomZ,maxX:roomX+ROOM_WORLD_SIZE,maxZ:roomZ+ROOM_WORLD_SIZE};
@@ -629,7 +674,7 @@ function createGateLever(parent,gate,x,z,floorY,side){
   gate.levers.push(interactable);worldInteractables.push(interactable);
 }
 
-function addShortcutGate(x,z,floorY,locationIndex,floorIndex){
+function addShortcutGate(x,z,floorY,locationIndex,floorIndex,options={}){
   const group=new THREE.Group();
   const frameMat=new THREE.MeshStandardMaterial({color:0x302b2e,metalness:0.48,roughness:0.7});
   const panelMat=new THREE.MeshStandardMaterial({color:0x4a292a,metalness:0.38,roughness:0.68});
@@ -646,8 +691,11 @@ function addShortcutGate(x,z,floorY,locationIndex,floorIndex){
   scene.add(group);envObjects.push({mesh:group});wallColliders.push(collider);
   const gate={group,panel,collider,levers:[],opened:false,opening:false,openElapsed:0,panelStartY:panel.position.y,panelRise:height+0.7,locationIndex,floorIndex};
   shortcutGates.push(gate);
-  createGateLever(group,gate,x,z-3.45,floorY,'south');
-  createGateLever(group,gate,x,z+3.45,floorY,'north');
+  if(options.farSideOnly) createGateLever(group,gate,x,z+3.45,floorY,'north');
+  else{
+    createGateLever(group,gate,x,z-3.45,floorY,'south');
+    createGateLever(group,gate,x,z+3.45,floorY,'north');
+  }
   return gate;
 }
 
