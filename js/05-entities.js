@@ -385,6 +385,12 @@ function buildGothicRoomArchitecture(floorRooms,locationIndex,stairSpecs,elevato
   scene.add(group);envObjects.push({mesh:group});
 }
 
+function applyUnifiedCathedralSurfaces(){
+  const t=createSurfaceTextures();
+  const apply=(mesh,type)=>{if(!mesh||!mesh.material)return;const ms=Array.isArray(mesh.material)?mesh.material:[mesh.material];ms.forEach(m=>{if(!m||((m.name||'').toLowerCase().includes('glass')))return;m.color.setHex(0xffffff);m.map=type==='floor'?t.floor:t.wall;m.normalMap=type==='floor'?t.floorNormal:t.wallNormal;m.roughnessMap=type==='floor'?t.floorRoughness:t.wallRoughness;m.normalScale=new THREE.Vector2(.62,.62);m.roughness=.92;m.metalness=.02;m.needsUpdate=true;});};
+  floorMeshes.forEach(m=>apply(m,'floor')); wallMeshes.forEach(m=>apply(m,'wall'));
+}
+
 let cathedralSliceLoadToken=0;
 function loadCathedralHallSlice(x,y,z,locationIndex,scale=1){
   if(!THREE.GLTFLoader||!scene)return;
@@ -477,27 +483,6 @@ function loadGeneratedDungeonArt(){
     rebuildWallCollisionGrid();
   },undefined,error=>console.warn('[BB] Gothic dungeon GLB load failed; keeping the procedural fallback.',error));
 }
-function loadGothicChasmArt(ox,oz){
-  if(!THREE.GLTFLoader)return;
-  const loadToken=generatedDungeonLoadToken,loader=new THREE.GLTFLoader();
-  loader.load('./assets/levelgen/gothic_viaduct.glb',gltf=>{
-    if(loadToken!==generatedDungeonLoadToken||currentLocation!==2)return;
-    const root=gltf.scene;root.userData.generatedAsset='gothic_viaduct.glb';root.position.set(ox+STAGE_WORLD_WIDTH/2+26,FLOOR_HEIGHT+1,oz+STAGE_WORLD_DEPTH/2+23);root.rotation.y=Math.PI/2;root.scale.setScalar(1.55);
-    root.traverse(object=>{
-      if(!object.isMesh)return;
-      object.castShadow=graphicsQuality==='ultra';object.receiveShadow=true;
-      const materials=Array.isArray(object.material)?object.material:[object.material];
-      materials.forEach(material=>{
-        if(material.color)material.color.setHex(0x27323a);
-        if(material.emissive)material.emissive.setHex(0x000000);
-        if(material.emissiveIntensity!==undefined)material.emissiveIntensity=0;
-        if(material.roughness!==undefined)material.roughness=0.96;
-      });
-    });
-    scene.add(root);envObjects.push({mesh:root});
-  },undefined,error=>console.warn('[BB] Gothic viaduct GLB load failed; keeping procedural arches.',error));
-}
-
 function loadLocation(idx){
   idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
   if(!canEnterLocation(idx)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return false;}
@@ -554,10 +539,7 @@ function loadLocation(idx){
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]-1.5,upperFloorHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0]+FLOOR_HEIGHT-1.5,stairHoles,true,floorSegmentSpacing);
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[1]+FLOOR_HEIGHT-1.5,[],true,floorSegmentSpacing);
-  if(idx===2){
-    wallMeshes.forEach(mesh=>{mesh.visible=false;});
-    floorMeshes.forEach(mesh=>{mesh.visible=false;});
-  }
+  applyUnifiedCathedralSurfaces();
   stairSpecs.forEach(spec=>{
     if(generatedStaircases&&generatedStaircases.length) registerGeneratedDungeonStaircase(spec);
     else addWalkableStaircase(spec.x,spec.z,FLOOR_LEVELS[0],FLOOR_LEVELS[1],spec.run,spec.width,spec.style);
