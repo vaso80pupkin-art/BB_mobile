@@ -66,12 +66,18 @@
   <div class="settings-btn" id="settingsBtn" title="Настройки">⚙</div>
   <div class="pause-btn" id="pauseBtn">⏸</div>
   <div class="fullscreen-btn" id="btnFullscreen" title="Полный экран">⛶</div>
-  <div class="echoes-box"><span class="icon">💀</span><span class="num" id="echoesNum">0</span></div>
-  <div class="insight-box"><span class="icon">👁</span><span class="num" id="insightNum">0</span></div>
-  <div class="shards-box"><span class="icon">💎</span><span class="num" id="shardsNum">0</span></div>
-  <div class="vial-box"><span class="icon">🩸</span><span class="num" id="vialNum">10</span></div>
-  <div class="bullet-box"><span class="icon">🔫</span><span class="num" id="bulletNum">20</span></div>
-  <div class="durability-box" id="durabilityBox"><span class="icon">⚒</span><span class="num" id="durabilityNum">100%</span></div>
+  <div class="resource-status-row" role="group" aria-label="Игровые показатели">
+    <div class="echoes-box" aria-label="Отголоски крови"><span class="icon">💀</span><span class="num" id="echoesNum">0</span></div>
+    <div class="insight-box" aria-label="Прозрение"><span class="icon">👁</span><span class="num" id="insightNum">0</span></div>
+    <div class="shards-box" aria-label="Осколки крови"><span class="icon">💎</span><span class="num" id="shardsNum">0</span></div>
+    <div class="vial-box" aria-label="Флаконы крови"><span class="icon">🩸</span><span class="num" id="vialNum">10</span></div>
+    <div class="bullet-box" aria-label="Пули"><span class="icon">🔫</span><span class="num" id="bulletNum">20</span></div>
+    <div class="durability-box" id="durabilityBox" aria-label="Прочность оружия"><span class="icon">⚒</span><span class="num" id="durabilityNum">100%</span></div>
+  </div>
+  <div class="auto-quality-notice" id="autoQualityNotice" role="status" aria-live="polite">
+    <span>Графика снижена, чтобы игра работала плавнее</span>
+    <button type="button" id="autoQualityRestoreBtn">ВЕРНУТЬ СРЕДНИЕ</button>
+  </div>
   <div class="combo-box" id="comboBox">x<span id="comboNum">0</span> COMBO</div>
   <div class="beast-box" id="beastBox">⚡ BEAST MODE ⚡</div>
 

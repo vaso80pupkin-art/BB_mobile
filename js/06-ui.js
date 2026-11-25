@@ -669,9 +669,11 @@ function renderSettingsTab(tab){
     c.innerHTML = `
       <div class="settings-row graphics-quality-row">
         <div class="sr-label"><b>🎨 КАЧЕСТВО ГРАФИКИ</b></div>
-        <div class="graphics-quality-toggle" role="group" aria-label="Профиль графики">
-          <button type="button" class="graphics-quality-btn" data-quality="ultra">УЛЬТРА</button>
-          <button type="button" class="graphics-quality-btn" data-quality="medium">СРЕДНИЕ</button>
+        <div class="graphics-quality-toggle" role="group" aria-label="Качество графики">
+          <button type="button" class="graphics-quality-btn" data-mode="auto">АВТО</button>
+          <button type="button" class="graphics-quality-btn" data-mode="low">НИЗКИЕ</button>
+          <button type="button" class="graphics-quality-btn" data-mode="medium">СРЕДНИЕ</button>
+          <button type="button" class="graphics-quality-btn" data-mode="ultra">УЛЬТРА</button>
         </div>
         <div class="graphics-quality-note" id="graphicsQualityNote"></div>
       </div>
@@ -696,7 +698,7 @@ function renderSettingsTab(tab){
       </div>
     `;
     document.querySelectorAll('.graphics-quality-btn').forEach(button=>button.addEventListener('click',()=>{
-      applyGraphicsQuality(button.dataset.quality);
+      setGraphicsMode(button.dataset.mode);
       sfx('menu');
     }));
     updateGraphicsQualityControls();
@@ -749,14 +751,18 @@ function renderSettingsTab(tab){
 
 function updateGraphicsQualityControls(){
   document.querySelectorAll('.graphics-quality-btn').forEach(button=>{
-    const selected=button.dataset.quality===graphicsQuality;
+    const selected=button.dataset.mode===graphicsMode;
     button.classList.toggle('active',selected);
     button.setAttribute('aria-pressed',selected?'true':'false');
   });
   const note=$('graphicsQualityNote');
-  if(note)note.textContent=graphicsQuality==='ultra'
-    ?'SSAO, мягкое свечение и динамические тени. На телефонах разрешение и цена эффектов автоматически ограничены.'
-    :'Облегчённое сглаживание и цветокоррекция; без SSAO и Bloom для более высокой частоты кадров.';
+  if(note)note.textContent=graphicsMode==='auto'
+    ?'Авто начинает со «Средних» и включает «Низкие», если игра несколько секунд работает медленно.'
+    :graphicsMode==='low'
+      ?'Самый лёгкий режим: меньше дождя, ниже разрешение, без теней и экранных эффектов.'
+      :graphicsMode==='ultra'
+        ?'Максимальные эффекты, мягкое свечение и тени; на слабых телефонах может работать медленнее.'
+        :'Средний режим: без тяжёлого свечения и затемнения углов.';
 }
 
 function setupFullscreen(){

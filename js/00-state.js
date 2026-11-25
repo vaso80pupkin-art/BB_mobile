@@ -11,13 +11,20 @@ let invertY = true;
 let skyBrightness = 2.0;
 let gameBrightness = 2.0;
 const GRAPHICS_QUALITY_KEY = 'bloodborne_graphics_quality_v1';
-function detectInitialGraphicsQuality(){
+const GRAPHICS_MODE_KEY = 'bloodborne_graphics_mode_v1';
+const GRAPHICS_MODES = ['auto','low','medium','ultra'];
+function detectInitialGraphicsMode(){
   try{
+    const mode=localStorage.getItem(GRAPHICS_MODE_KEY);
+    if(GRAPHICS_MODES.includes(mode))return mode;
     const saved=localStorage.getItem(GRAPHICS_QUALITY_KEY);
-    if(saved==='ultra'||saved==='medium')return saved;
+    if(GRAPHICS_MODES.includes(saved))return saved;
   }catch(e){}
-  const mobile=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(innerWidth||800,innerHeight||600)<600;
-  return mobile?'medium':'ultra';
+  return 'auto';
+}
+let graphicsMode = detectInitialGraphicsMode();
+function detectInitialGraphicsQuality(){
+  return graphicsMode==='auto'?'medium':graphicsMode;
 }
 let graphicsQuality = detectInitialGraphicsQuality();
 let stairFallAnimation = null;
@@ -414,7 +421,7 @@ const SaveSystem = {
           tools: {...player.tools}, unlockedLocations: player.unlockedLocations,
           seenBosses: {...player.seenBosses}, bestKills: player.bestKills, maxCombo: player.maxCombo
         },
-        settings: { version: 3, sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack, graphicsQuality },
+        settings: { version: 3, sfxVolume, musicVolume, camSensitivity, invertY, skyBrightness, gameBrightness, currentMusicTrack, graphicsQuality, graphicsMode },
         currentLocation, campaignProgress, achievements: unlockedAchievements, bestiary: discoveredBestiary,
         parryCount, perfectDodgeCount, timestamp: Date.now()
       };
@@ -442,11 +449,17 @@ const SaveSystem = {
         skyBrightness = savedSettings.skyBrightness ?? skyBrightness;
         gameBrightness = savedSettings.gameBrightness ?? gameBrightness;
         currentMusicTrack = savedSettings.currentMusicTrack ?? 0;
-        if(savedSettings.graphicsQuality==='ultra'||savedSettings.graphicsQuality==='medium'){
-          if(savedSettings.graphicsQuality!==graphicsQuality&&typeof applyGraphicsQuality==='function'){
-            applyGraphicsQuality(savedSettings.graphicsQuality,{saveGame:false});
-          }else graphicsQuality=savedSettings.graphicsQuality;
+        if(GRAPHICS_MODES.includes(savedSettings.graphicsMode)){
+          graphicsMode=savedSettings.graphicsMode;
+          try{localStorage.setItem(GRAPHICS_MODE_KEY,graphicsMode);}catch(e){}
+        }else if(!localStorage.getItem(GRAPHICS_MODE_KEY)&&GRAPHICS_MODES.includes(savedSettings.graphicsQuality)){
+          graphicsMode=savedSettings.graphicsQuality;
+          try{localStorage.setItem(GRAPHICS_MODE_KEY,graphicsMode);}catch(e){}
         }
+        const loadedGraphicsQuality=graphicsMode==='auto'?'medium':graphicsMode;
+        if(loadedGraphicsQuality!==graphicsQuality&&typeof applyGraphicsQuality==='function'){
+          applyGraphicsQuality(loadedGraphicsQuality,{persist:false,saveGame:false});
+        }else graphicsQuality=loadedGraphicsQuality;
         if(migrateOldDefaults){
           if(savedSettings.invertY===false) invertY=true;
           if(savedSettings.skyBrightness===1) skyBrightness=2.0;

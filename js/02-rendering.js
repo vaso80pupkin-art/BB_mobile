@@ -77,13 +77,15 @@ function isMobileGraphicsDevice(){
   return (window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(innerWidth,innerHeight)<600;
 }
 function getGraphicsProfile(){
-  const mobile=isMobileGraphicsDevice(),ultra=graphicsQuality==='ultra';
+  const mobile=isMobileGraphicsDevice(),low=graphicsQuality==='low',ultra=graphicsQuality==='ultra';
   return {
-    mobile,ultra,
-    pixelRatioLimit:ultra?(mobile?1.45:2.0):(mobile?0.9:1.25),
-    shadowMapSize:ultra?2048:(mobile?768:1024),
+    mobile,low,ultra,
+    pixelRatioLimit:low?(mobile?0.65:0.85):ultra?(mobile?1.45:2.0):(mobile?0.9:1.25),
+    shadowMapSize:low?512:ultra?2048:(mobile?768:1024),
     pointShadowMapSize:mobile?512:768,
     anisotropy:ultra?(mobile?8:16):4,
+    shadowsEnabled:!low,
+    dustMoteLimit:low?12:(mobile?32:80),
     useSSAO:ultra,
     useBloom:ultra,
     ssaoKernelRadius:mobile?8:11,
@@ -131,6 +133,7 @@ function buildGraphicsPipeline(){
   if(!renderer||!scene||!camera)return;
   disposeGraphicsPipeline();graphicsPipelineBroken=false;
   const profile=getGraphicsProfile();
+  if(profile.low)return;
   try{
     if(!THREE.EffectComposer||!THREE.RenderPass||!THREE.ShaderPass||!THREE.FXAAShader||!THREE.GammaCorrectionShader){
       throw new Error('Не загружены необходимые postprocessing addons Three.js r128.');
@@ -172,31 +175,98 @@ function handleRendererResize(){
 }
 
 function applyGraphicsQuality(quality,options={}){
-  const next=quality==='ultra'?'ultra':'medium',changed=graphicsQuality!==next;
+  const next=quality==='ultra'?'ultra':quality==='low'?'low':'medium',changed=graphicsQuality!==next;
   graphicsQuality=next;
   if(options.persist!==false){try{localStorage.setItem(GRAPHICS_QUALITY_KEY,next);}catch(e){}}
   if(renderer){
     const profile=getGraphicsProfile(),ratio=getGraphicsPixelRatio(profile);
     renderer.setPixelRatio(ratio);renderer.setSize(innerWidth,innerHeight,false);
-    renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled=profile.shadowsEnabled;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     if(lightingRefs.moon){
       const shadow=lightingRefs.moon.shadow;
+      lightingRefs.moon.castShadow=profile.shadowsEnabled;
       if(shadow.map){shadow.map.dispose();shadow.map=null;}
       shadow.mapSize.set(profile.shadowMapSize,profile.shadowMapSize);
       shadow.radius=profile.ultra?3.5:2.2;shadow.needsUpdate=true;
       shadow.camera.updateProjectionMatrix();
     }
     graphicsPointLights.forEach(light=>{
+      light.castShadow=false;
       if(light.shadow.map){light.shadow.map.dispose();light.shadow.map=null;}
       light.shadow.mapSize.set(profile.pointShadowMapSize,profile.pointShadowMapSize);
       light.shadow.radius=profile.ultra?2.5:1.5;
     });
+    activeGraphicsShadowPointLight=null;
     buildGraphicsPipeline();
+    if(window._rainMesh)createRain();
+    if(profile.low&&Array.isArray(dustMotes)){
+      while(dustMotes.length>profile.dustMoteLimit){
+        const mote=dustMotes.pop();
+        if(mote&&mote.mesh){scene.remove(mote.mesh);mote.mesh.geometry?.dispose();mote.mesh.material?.dispose();}
+      }
+    }
     if(typeof applyBrightness==='function')applyBrightness();
   }
   if(options.saveGame!==false&&changed&&typeof SaveSystem!=='undefined')SaveSystem.save();
   if(typeof updateGraphicsQualityControls==='function')updateGraphicsQualityControls();
   return changed;
+}
+
+function setGraphicsMode(mode,options={}){
+  if(!GRAPHICS_MODES.includes(mode))return false;
+  graphicsMode=mode;
+  try{
+    localStorage.setItem(GRAPHICS_MODE_KEY,mode);
+    if(mode!=='auto')localStorage.setItem(GRAPHICS_QUALITY_KEY,mode);
+  }catch(e){}
+  const targetQuality=mode==='auto'?'medium':mode;
+  if(graphicsQuality!==targetQuality)applyGraphicsQuality(targetQuality,{persist:false,saveGame:false});
+  else if(typeof updateGraphicsQualityControls==='function')updateGraphicsQualityControls();
+  graphicsAutoResetMonitor();
+  if(mode!=='auto')hideGraphicsAutoNotice();
+  if(options.saveGame!==false&&typeof SaveSystem!=='undefined')SaveSystem.save();
+  return true;
+}
+
+let graphicsAutoLastTime=0,graphicsAutoWindowMs=0,graphicsAutoWindowFrames=0,graphicsAutoSlowWindows=0,graphicsAutoStartAt=0;
+function graphicsAutoResetMonitor(){graphicsAutoLastTime=0;graphicsAutoWindowMs=0;graphicsAutoWindowFrames=0;graphicsAutoSlowWindows=0;graphicsAutoStartAt=0;}
+function hideGraphicsAutoNotice(){
+  const notice=document.getElementById('autoQualityNotice');
+  if(notice)notice.classList.remove('show');
+  if(notice&&notice._hideTimer){clearTimeout(notice._hideTimer);notice._hideTimer=0;}
+}
+function showGraphicsAutoNotice(){
+  const notice=document.getElementById('autoQualityNotice');
+  if(!notice)return;
+  notice.classList.add('show');
+  if(notice._hideTimer)clearTimeout(notice._hideTimer);
+  notice._hideTimer=setTimeout(()=>notice.classList.remove('show'),12000);
+  const restore=document.getElementById('autoQualityRestoreBtn');
+  if(restore&&!restore._autoQualitySetup){
+    restore._autoQualitySetup=true;
+    restore.addEventListener('click',()=>setGraphicsMode('medium'));
+  }
+}
+function updateGraphicsAutoQuality(){
+  if(graphicsMode!=='auto'||gameMode!==GameMode.PLAYING||document.visibilityState==='hidden'){
+    graphicsAutoResetMonitor();return;
+  }
+  const now=performance.now();
+  if(!graphicsAutoStartAt){graphicsAutoStartAt=now+5000;graphicsAutoLastTime=0;return;}
+  if(now<graphicsAutoStartAt)return;
+  if(!graphicsAutoLastTime){graphicsAutoLastTime=now;return;}
+  const elapsed=now-graphicsAutoLastTime;graphicsAutoLastTime=now;
+  if(elapsed>2500){graphicsAutoWindowMs=0;graphicsAutoWindowFrames=0;graphicsAutoSlowWindows=0;return;}
+  graphicsAutoWindowMs+=elapsed;graphicsAutoWindowFrames++;
+  if(graphicsAutoWindowMs<2000)return;
+  const fps=graphicsAutoWindowFrames*1000/graphicsAutoWindowMs;
+  graphicsAutoSlowWindows=fps<22?graphicsAutoSlowWindows+1:0;
+  graphicsAutoWindowMs=0;graphicsAutoWindowFrames=0;
+  if(graphicsAutoSlowWindows>=2&&graphicsQuality!=='low'){
+    graphicsAutoSlowWindows=0;
+    applyGraphicsQuality('low',{persist:false,saveGame:false});
+    showGraphicsAutoNotice();
+  }
 }
 
 function registerGraphicsPointLight(light){
@@ -308,8 +378,15 @@ function createMoonGlowTexture(){
 
 function createRain(){
   if(!scene) return;
+  if(window._rainMesh){
+    scene.remove(window._rainMesh);
+    window._rainMesh.geometry.dispose();
+    window._rainMesh.material.dispose();
+    window._rainMesh=null;
+  }
   const rainGeo = new THREE.BufferGeometry();
-  const rainCount = matchMedia('(pointer: coarse)').matches ? 420 : 1000;
+  const profile=getGraphicsProfile();
+  const rainCount = profile.low?(profile.mobile?140:300):(profile.mobile?420:1000);
   const positions = new Float32Array(rainCount * 6);
   rainDrops = [];
   for(let i=0;i<rainCount;i++){
@@ -326,12 +403,14 @@ function createRain(){
   const rainMat = new THREE.LineBasicMaterial({color:0x91a1b2,transparent:true,opacity:0.24,depthWrite:false});
   const rain = new THREE.LineSegments(rainGeo, rainMat);
   rain.frustumCulled = false;
+  rain.visible=currentLocation!==2;
   scene.add(rain);
   window._rainMesh = rain;
 }
 function spawnDustMotes(count=80){
   if(!scene) return;
-  const moteCount = matchMedia('(pointer: coarse)').matches ? Math.min(count,32) : count;
+  const profile=getGraphicsProfile();
+  const moteCount = Math.min(count,profile.dustMoteLimit);
   for(let i=0;i<moteCount;i++){
     const geo = new THREE.SphereGeometry(0.02+Math.random()*0.035, 4, 4);
     const mat = new THREE.MeshBasicMaterial({color:0xaeb3bd, transparent:true, opacity:0.20});

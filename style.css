@@ -433,3 +433,22 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 #stagePlanCanvas{display:block;width:100%;height:auto;max-height:70vh;background:radial-gradient(ellipse at center,#1a2a32,#090e14 72%);border:1px solid rgba(125,151,160,.32)}
 .stage-plan-legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 3px 0;color:#aab4bb;font:11px Arial,sans-serif}.stage-plan-legend span{display:flex;align-items:center;gap:5px}.stage-plan-legend i{display:inline-block;width:16px;height:4px;border-radius:3px}.legend-main{background:#d7bd78}.legend-branch{background:#6da3b8}.legend-gate{background:#bc594f}.legend-player{width:9px!important;height:9px!important;border-radius:50%!important;background:#9de073}
 @media (max-width:700px){.stage-plan-hint{top:154px;left:10px;font-size:8px}.stage-plan-card{width:96vw;padding:14px 12px 11px}.stage-plan-heading h2{font-size:18px}.stage-plan-heading p{font-size:10px}.stage-plan-legend{gap:8px;font-size:9px}}
+
+/* Keep read-only resource counters clear of the touch controls in landscape. */
+.resource-status-row{position:absolute;top:6px;left:max(238px,calc(50% - 220px));right:max(160px,calc(50% - 220px));z-index:19;display:flex;align-items:center;justify-content:center;gap:clamp(2px,.55vw,6px);height:32px;pointer-events:none}
+.resource-status-row .echoes-box,.resource-status-row .insight-box,.resource-status-row .shards-box,.resource-status-row .vial-box,.resource-status-row .bullet-box,.resource-status-row .durability-box{position:relative;top:auto;right:auto;flex:0 1 auto;min-width:0;margin:0;padding:3px clamp(4px,.65vw,8px);gap:3px;border-width:1px;border-radius:5px;white-space:nowrap}
+.resource-status-row .icon{font-size:clamp(11px,1.1vw,15px)}
+.resource-status-row .num{font-size:clamp(10px,1.05vw,14px)}
+.location-name{top:62px;max-width:min(68vw,680px);padding:0 6px;font-size:clamp(10px,1.1vw,14px);line-height:1.2;letter-spacing:clamp(.5px,.12vw,1.5px);white-space:normal;overflow-wrap:break-word}
+.auto-quality-notice{position:absolute;top:78px;left:50%;transform:translateX(-50%);z-index:24;display:none;align-items:center;gap:10px;max-width:min(90vw,560px);padding:8px 12px;border:1px solid rgba(201,185,131,.75);border-radius:5px;background:rgba(8,10,14,.94);color:#e4d5b0;font:11px Arial,sans-serif;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.65);pointer-events:auto}
+.auto-quality-notice.show{display:flex}
+.auto-quality-notice button{flex:0 0 auto;padding:6px 8px;border:1px solid #8c7440;background:#231a0d;color:#e5cd86;font:700 9px 'Cinzel',serif;letter-spacing:.04em;touch-action:manipulation}
+.graphics-quality-toggle{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.graphics-quality-btn{min-width:0;padding:8px 4px;font-size:10px;letter-spacing:.4px;white-space:nowrap}
+@media (max-width:700px){
+  .resource-status-row{left:234px;right:156px;gap:2px}
+  .resource-status-row .echoes-box,.resource-status-row .insight-box,.resource-status-row .shards-box,.resource-status-row .vial-box,.resource-status-row .bullet-box,.resource-status-row .durability-box{padding:2px 4px;gap:2px}
+  .resource-status-row .icon{font-size:10px}
+  .resource-status-row .num{font-size:9px}
+  .auto-quality-notice{top:74px;gap:6px;padding:6px 8px;font-size:10px}
+}
