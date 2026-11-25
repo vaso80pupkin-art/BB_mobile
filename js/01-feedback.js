@@ -21,10 +21,26 @@ function discoverBestiary(id){
 function notify(t, rally, beast, frenzy){
   const n = $('notif');
   if(!n) return;
+  n.classList.remove('show','notif-long');
+  n.style.removeProperty('top');
+  n.style.removeProperty('left');
+  n.style.removeProperty('right');
   n.textContent = t;
   n.classList.toggle('rally',!!rally);
   n.classList.toggle('beast',!!beast);
   n.classList.toggle('frenzy',!!frenzy);
+  const messageRect=n.getBoundingClientRect();
+  const bars=Array.from(document.querySelectorAll('.stam-bg,.frenzy-bg')).map(bar=>bar.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
+  const overlapsBars=String(t).length>28&&bars.some(rect=>{
+    return messageRect.left<rect.right&&messageRect.right>rect.left&&messageRect.top<rect.bottom&&messageRect.bottom>rect.top;
+  });
+  n.classList.toggle('notif-long',overlapsBars);
+  if(overlapsBars){
+    const minimap=document.querySelector('.minimap'), mapRect=minimap&&minimap.getBoundingClientRect();
+    n.style.left=Math.ceil(mapRect&&mapRect.width?mapRect.right+10:135)+'px';
+    n.style.right='12px';
+    n.style.top=Math.ceil(Math.max(...bars.map(rect=>rect.bottom))+8)+'px';
+  }
   n.classList.add('show');
   clearTimeout(n._t);
   n._t = setTimeout(()=>n.classList.remove('show'),1800);

@@ -123,8 +123,10 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 .vial-btn:active{transform:scale(0.92)}
 .vial-btn svg{width:30px;height:30px;fill:#dd9999}
 
-.notif{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,rgba(12,6,6,0.98),rgba(24,12,12,0.98));border:2px solid rgba(220,50,50,0.85);padding:14px 32px;border-radius:4px;color:#ddc0c0;font-size:15px;font-weight:bold;letter-spacing:3px;opacity:0;transition:opacity 0.3s,transform 0.3s;pointer-events:none;z-index:100;white-space:nowrap}
-.notif.show{opacity:1;transform:translate(-50%,-50%) scale(1.05)}
+.notif{position:absolute;top:clamp(38px,7vh,48px);left:50%;transform:translateX(-50%);width:max-content;box-sizing:border-box;max-width:calc(100vw - 24px);background:linear-gradient(135deg,rgba(12,6,6,0.98),rgba(24,12,12,0.98));border:2px solid rgba(220,50,50,0.85);padding:14px 32px;border-radius:4px;color:#ddc0c0;font-size:15px;font-weight:bold;letter-spacing:3px;text-align:center;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;white-space:normal;overflow-wrap:anywhere}
+.notif.show{opacity:1;transform:translateX(-50%)}
+.notif.notif-long{top:64px;left:135px;right:12px;width:auto;max-width:none;transform:none;text-align:left}
+.notif.notif-long.show{transform:none}
 .notif.rally{border-color:rgba(220,130,40,0.9);color:#ddb070}
 .notif.beast{border-color:rgba(220,40,0,0.95);color:#dd5533}
 .notif.frenzy{border-color:rgba(170,40,170,0.95);color:#dd70dd}
@@ -479,3 +481,5 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 #btnContinue{bottom:clamp(26px,6vh,34px)}
 @media (max-width:600px){.tool-hotbar{left:calc(50% - 90px)}}
 @media (orientation:landscape){.tool-hotbar{left:calc(50% - clamp(0px,calc(50vw - 232px),104px))}}
+@media (orientation:landscape) and (max-width:700px){.notif{font-size:12px;letter-spacing:1.5px;padding:8px 14px}}
+@media (orientation:landscape) and (max-width:400px) and (max-height:340px){.notif.notif-long{font-size:10px;letter-spacing:.5px;line-height:1.05;padding:4px 6px}}
