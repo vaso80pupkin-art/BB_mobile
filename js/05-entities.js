@@ -573,8 +573,8 @@ function loadLocation(idx){
   spawnDustMotes(60);
   if(idx===3) loadGeneratedDungeonArt();
   const startRoom=floorRooms[0][0];
-  const spawnX=idx===2?gothicLayout.centerX-62:startRoom.roomX+cellSize*3.5;
-  const spawnZ=idx===2?gothicLayout.lowerZ:startRoom.roomZ+cellSize*3.5;
+  const spawnX=startRoom.roomX+cellSize*3.5;
+  const spawnZ=startRoom.roomZ+cellSize*3.5;
   spawnLantern(spawnX+2.4,spawnZ+1.0,true,FLOOR_LEVELS[0]);
   player.respawnPoint={x:spawnX,z:spawnZ,y:FLOOR_LEVELS[0],loc:idx,floor:0};
   if(hunter){
