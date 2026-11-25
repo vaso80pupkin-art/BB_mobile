@@ -94,7 +94,10 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 .stick-knob.sprint{background:radial-gradient(circle at 35% 35%,rgba(220,160,70,0.7),rgba(140,90,30,0.8));border-color:rgba(230,180,90,0.8)}
 
 .right-side{display:flex;flex-direction:column;align-items:flex-end;gap:12px;pointer-events:none}
-.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:"gun transform" "attack .";gap:10px}
+#btnAttack{grid-area:attack}
+#btnGun{grid-area:gun}
+#btnTransform{grid-area:transform}
 .act-btn{width:70px;height:70px;background:radial-gradient(circle,rgba(38,38,48,0.85),rgba(14,14,20,0.9));border:2px solid rgba(120,120,140,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.1s;pointer-events:auto;position:relative}
 .target-lock-btn{display:none}
 .target-lock-btn.is-visible{display:flex}
@@ -104,6 +107,11 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 .act-btn svg{width:36px;height:36px;fill:#d0d0d0}
 .act-btn.transform svg{fill:#7088dd}
 .act-btn.transform.active{background:radial-gradient(circle,rgba(50,80,170,0.85),rgba(16,30,100,0.9));border-color:rgba(100,140,230,0.9)}
+#btnTransform .target-lock-icon{display:none}
+#btnTransform.target-available .weapon-switch-icon{display:none}
+#btnTransform.target-available .target-lock-icon{display:block}
+#btnTransform.locked{background:radial-gradient(circle,rgba(202,143,43,.98),rgba(100,52,10,.98));border-color:#ffe18a;box-shadow:0 0 24px rgba(255,184,55,.92),inset 0 0 16px rgba(255,233,157,.35)}
+#btnTransform.locked .target-lock-icon{fill:#fff4c5;filter:drop-shadow(0 0 5px rgba(255,233,157,.9))}
 .charge-indicator{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:50px;height:4px;background:rgba(0,0,0,0.85);border-radius:2px;overflow:hidden;opacity:0;transition:opacity 0.2s}
 .charge-indicator.show{opacity:1}
 .charge-bar{height:100%;background:linear-gradient(90deg,#e89540,#dd3838);width:0%;transition:width 0.05s linear}
@@ -451,4 +459,10 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
   .resource-status-row .icon{font-size:10px}
   .resource-status-row .num{font-size:9px}
   .auto-quality-notice{top:74px;gap:6px;padding:6px 8px;font-size:10px}
+}
+
+/* Expanded landscape minimap: use the free upper-left panel without covering the level label. */
+@media (orientation: landscape){
+  .minimap{top:56px;left:10px;width:min(220px,calc(50vw - 18px));height:88px;border-radius:4px}
+  .minimap-canvas{display:block;width:100%;height:100%}
 }

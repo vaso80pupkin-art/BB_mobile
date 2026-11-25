@@ -58,7 +58,7 @@
     <div class="stam-bg"><div class="stam-fill" id="stamFill"></div></div>
     <div class="frenzy-bg"><div class="frenzy-fill" id="frenzyFill"></div></div>
   </div>
-  <div class="minimap"><canvas class="minimap-canvas" id="minimapCanvas" width="120" height="120"></canvas></div>
+  <div class="minimap"><canvas class="minimap-canvas" id="minimapCanvas" width="300" height="120"></canvas></div>
   <div class="stage-plan-hint" id="stagePlanHint">Нажмите на карту — схема этапа</div>
   <div class="level-box" id="levelBox">LV 10</div>
   <div class="ng-box" id="ngBox">NG+1</div>
@@ -126,13 +126,15 @@
   <div class="left-stick" id="leftStick"><div class="stick-knob" id="leftKnob"></div></div>
   <div class="right-side">
     <div class="btn-grid">
-      <div class="act-btn" id="btnAttack">
+      <div class="act-btn" id="btnAttack" aria-label="Атака">
         <svg viewBox="0 0 24 24"><path d="M7 2l-3 8h6l-3 12 6-10h-5l4-10z"/></svg>
         <div class="charge-indicator" id="chargeIndicator"><div class="charge-bar" id="chargeBar"></div></div>
       </div>
-      <div class="act-btn" id="btnGun"><svg viewBox="0 0 24 24"><path d="M2 10h12v3h-2l-1 2H8l-1-2H2v-3zm14-1h5v5h-5z"/></svg></div>
-      <div class="act-btn target-lock-btn" id="btnLockOn" aria-label="Захват цели" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10h-3a7 7 0 1 1-7-7V2zm2 0v8h8a10 10 0 0 0-8-8z"/></svg></div>
-      <div class="act-btn transform" id="btnTransform"><svg viewBox="0 0 24 24"><path d="M4 4l6 6-2 2L2 6l2-2zm14 14l2-2 6 6-2 2-6-6zM8 4h4v2H8V4zm8 12h2v4h-2v-4z"/></svg></div>
+      <div class="act-btn" id="btnGun" aria-label="Выстрел"><svg viewBox="0 0 24 24"><path d="M2 10h12v3h-2l-1 2H8l-1-2H2v-3zm14-1h5v5h-5z"/></svg></div>
+      <div class="act-btn transform" id="btnTransform" aria-label="Смена формы оружия" aria-pressed="false">
+        <svg class="weapon-switch-icon" viewBox="0 0 24 24"><path d="M4 4l6 6-2 2L2 6l2-2zm14 14l2-2 6 6-2 2-6-6zM8 4h4v2H8V4zm8 12h2v4h-2v-4z"/></svg>
+        <svg class="target-lock-icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10h-3a7 7 0 1 1-7-7V2zm2 0v8h8a10 10 0 0 0-8-8z"/></svg>
+      </div>
     </div>
     <div class="vial-btn" id="btnVial"><svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v3c2 0 4 2 4 4v9c0 1-1 2-2 2H8c-1 0-2-1-2-2v-9c0-2 2-4 4-4V4H9V2z"/></svg></div>
   </div>

@@ -484,9 +484,8 @@ function setupButtons(){
     el.addEventListener('touchstart',(e)=>{e.preventDefault();e.stopPropagation();if(gameMode===GameMode.PLAYING&&!stairFallAnimation)fn();},{passive:false});
     el.addEventListener('mousedown',(e)=>{e.preventDefault();if(gameMode===GameMode.PLAYING&&!stairFallAnimation)fn();});
   };
-  bind('btnLockOn',toggleLockOn);
   bind('btnGun',performGunshot);
-  bind('btnTransform',performTransform);
+  bind('btnTransform',performTransformOrLock);
   bind('btnVial',useVial);
   bind('worldInteractPrompt',activateNearbyWorldObject);
 
@@ -1158,6 +1157,14 @@ function performGunshot(){
     }
   });
 }
+function performTransformOrLock(){
+  if(player.lockedTarget||getNearestLockOnTarget()){
+    if(player.isAttacking||player.isDodging)return;
+    toggleLockOn();
+    return;
+  }
+  performTransform();
+}
 function performTransform(){
   if(player.isAttacking){ player.transformAttackBuffer = 1.0; return; }
   if(player.isDodging) return;
@@ -1200,11 +1207,12 @@ function getNearestLockOnTarget(){
   return nearest;
 }
 function updateLockOnButton(){
-  const button=$('btnLockOn');
+  const button=$('btnTransform');
   if(!button) return;
   if(gameMode!==GameMode.PLAYING||!hunter){
-    button.classList.remove('is-visible','locked');
+    button.classList.remove('target-available','locked');
     button.setAttribute('aria-pressed','false');
+    button.setAttribute('aria-label','Смена формы оружия');
     return;
   }
   const target=player.lockedTarget;
@@ -1214,9 +1222,10 @@ function updateLockOnButton(){
   if(target&&!targetInRange) player.lockedTarget=null;
   const hasTarget=!!getNearestLockOnTarget();
   const locked=!!player.lockedTarget;
-  button.classList.toggle('is-visible',hasTarget);
+  button.classList.toggle('target-available',hasTarget);
   button.classList.toggle('locked',locked);
   button.setAttribute('aria-pressed',locked?'true':'false');
+  button.setAttribute('aria-label',hasTarget?'Захват цели':'Смена формы оружия');
 }
 function toggleLockOn(){
   if(player.lockedTarget){

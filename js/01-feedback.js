@@ -252,11 +252,13 @@ function spawnParryIndicator(enemy){
 
 function updateMinimap(){
   if(!minimapCtx || !hunter) return;
+  const mapWidth=minimapCtx.canvas.width,mapHeight=minimapCtx.canvas.height;
   minimapCtx.fillStyle = 'rgba(0,0,0,0.35)';
-  minimapCtx.fillRect(0,0,120,120);
-  const scale = 108 / Math.max(STAGE_WORLD_WIDTH,STAGE_WORLD_DEPTH);
-  const offsetX = 60 - ((stageBounds.minX+stageBounds.maxX)/2 + hunter.position.x)*scale;
-  const offsetY = 60 - ((stageBounds.minZ+stageBounds.maxZ)/2 + hunter.position.z)*scale;
+  minimapCtx.fillRect(0,0,mapWidth,mapHeight);
+  const scale = Math.min((mapWidth-12)/STAGE_WORLD_WIDTH,(mapHeight-12)/STAGE_WORLD_DEPTH);
+  const mapCenterX=mapWidth/2,mapCenterY=mapHeight/2;
+  const offsetX = mapCenterX - ((stageBounds.minX+stageBounds.maxX)/2 + hunter.position.x)*scale;
+  const offsetY = mapCenterY - ((stageBounds.minZ+stageBounds.maxZ)/2 + hunter.position.z)*scale;
   minimapCtx.fillStyle = '#686c75';
   wallColliders.forEach(w => {
     if(Math.abs((w.minY||0)-FLOOR_LEVELS[currentFloorIndex])>0.1) return;
@@ -292,19 +294,19 @@ function updateMinimap(){
   }
   minimapCtx.fillStyle = '#33dd33';
   minimapCtx.beginPath();
-  minimapCtx.arc(60, 60, 4, 0, Math.PI * 2);
+  minimapCtx.arc(mapCenterX, mapCenterY, 4, 0, Math.PI * 2);
   minimapCtx.fill();
   minimapCtx.strokeStyle = '#33dd33'; minimapCtx.lineWidth = 2;
   minimapCtx.beginPath();
-  const dirX = 60 + Math.sin(hunter.rotation.y) * 8;
-  const dirY = 60 + Math.cos(hunter.rotation.y) * 8;
-  minimapCtx.moveTo(60, 60);
+  const dirX = mapCenterX + Math.sin(hunter.rotation.y) * 8;
+  const dirY = mapCenterY + Math.cos(hunter.rotation.y) * 8;
+  minimapCtx.moveTo(mapCenterX, mapCenterY);
   minimapCtx.lineTo(dirX, dirY);
   minimapCtx.stroke();
   minimapCtx.fillStyle='#c9b983';
   minimapCtx.font='bold 10px Cinzel,serif';
   minimapCtx.textAlign='center';
-  minimapCtx.fillText('ЭТАЖ '+(currentFloorIndex+1)+'/2',60,115);
+  minimapCtx.fillText('ЭТАЖ '+(currentFloorIndex+1)+'/2',mapCenterX,mapHeight-5);
 }
 
 function applyBrightness(){

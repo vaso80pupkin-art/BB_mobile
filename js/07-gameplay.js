@@ -261,6 +261,11 @@ function checkWall(nx,nz,radius=0.55,entityY=hunter?hunter.position.y:0,bodyHeig
   } else wallColliders.forEach(w=>candidates.add(w));
   for(const w of candidates){
     if(entityY+bodyHeight<w.minY || entityY>w.maxY) continue;
+    if(w.stairGuard&&w.stairRun>0){
+      const along=Math.max(0,Math.min(1,(nz-w.stairZ)/w.stairRun));
+      const stairSurface=w.stairLowerY+(w.stairUpperY-w.stairLowerY)*along;
+      if(entityY+bodyHeight<stairSurface-0.35) continue;
+    }
     if(nx+radius>w.minX && nx-radius<w.maxX && nz+radius>w.minZ && nz-radius<w.maxZ){candidates.clear();return true;}
   }
   candidates.clear();

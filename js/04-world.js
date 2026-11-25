@@ -111,7 +111,7 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
       const anchor=new THREE.Mesh(anchorGeometry,edge);
       anchor.position.set(side*(width/2+0.1),upperY,run);group.add(anchor);
       const railX=x+side*(width/2+0.1),railHalfWidth=0.18;
-      wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+0.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+0.4,d:run+0.4,floorY:lowerY});
+      wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+0.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+0.4,d:run+0.4,floorY:lowerY,stairGuard:true,stairX:x,stairZ:z,stairLowerY:lowerY,stairUpperY:upperY,stairRun:run});
     }
   } else {
     const boxGeometry=new THREE.BoxGeometry(1,1,1);
@@ -131,7 +131,7 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
         post.position.set(side*(width/2+0.12),lowerY+t*rise+0.45,t*run);post.castShadow=true;group.add(post);
       }
       const railX=x+side*(width/2+0.12),railHalfWidth=isStone?0.24:0.18;
-      wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+1.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+1.4,d:run+0.4,floorY:lowerY});
+      wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+1.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+1.4,d:run+0.4,floorY:lowerY,stairGuard:true,stairX:x,stairZ:z,stairLowerY:lowerY,stairUpperY:upperY,stairRun:run});
     }
   }
   group.position.set(x,0,z);scene.add(group);envObjects.push({mesh:group});
@@ -146,7 +146,8 @@ function registerGeneratedDungeonStaircase(stair){
     const railX=x+side*(width/2+0.25),halfWidth=0.225;
     wallColliders.push({minX:railX-halfWidth,maxX:railX+halfWidth,minY:lowerY,maxY:upperY,
       minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,
-      w:halfWidth*2,h:upperY-lowerY,d:run+0.4,floorY:lowerY});
+      w:halfWidth*2,h:upperY-lowerY,d:run+0.4,floorY:lowerY,stairGuard:true,
+      stairX:x,stairZ:z,stairLowerY:lowerY,stairUpperY:upperY,stairRun:run});
   }
 }
 
