@@ -263,6 +263,7 @@ def build_scene(layout_path: Path, out_dir: Path):
             stair_mesh.box((stair["x"], y, z), (sw, 0.32, tread * 1.05), (1.0, 0.7))
         # Low waist-height side fences leave the space below each stair flight open.
         fence_height = 3.8
+        landing_depth = 3.5
         rail_length = math.sqrt(run * run + rise * rise)
         rail_angle = math.atan2(run, rise)
         post_count = max(2, math.ceil(run / 3.5))
@@ -273,6 +274,9 @@ def build_scene(layout_path: Path, out_dir: Path):
                 stair_mesh.box((rail_x, stair["lower_y"] + t * rise + fence_height * 0.5, stair["z"] + t * run), (0.28, fence_height, 0.28), (0.5, 2.0))
             for height_ratio in (0.5, 0.98):
                 stair_mesh.sloped_box((rail_x, stair["lower_y"] + rise * 0.5 + fence_height * height_ratio, stair["z"] + run * 0.5), (0.24, rail_length, 0.28), rail_angle, (0.5, 2.0))
+            stair_mesh.box((rail_x, stair["upper_y"] + fence_height * 0.5, stair["z"] + run + landing_depth), (0.28, fence_height, 0.28), (0.5, 2.0))
+            for height_ratio in (0.5, 0.98):
+                stair_mesh.box((rail_x, stair["upper_y"] + fence_height * height_ratio, stair["z"] + run + landing_depth * 0.5), (0.28, 0.24, landing_depth), (0.5, 2.0))
 
     # Bridge supports: ribs and clustered piers at both over-under crossings.
     for idx, (x, z) in enumerate(layout["crossings"]):

@@ -255,7 +255,7 @@ function updateMinimap(){
   const mapWidth=minimapCtx.canvas.width,mapHeight=minimapCtx.canvas.height;
   minimapCtx.fillStyle = 'rgba(0,0,0,0.35)';
   minimapCtx.fillRect(0,0,mapWidth,mapHeight);
-  const scale = Math.min((mapWidth-12)/STAGE_WORLD_WIDTH,(mapHeight-12)/STAGE_WORLD_DEPTH);
+  const scale = Math.max(1,mapHeight-30)/STAGE_WORLD_DEPTH;
   const mapCenterX=mapWidth/2,mapCenterY=mapHeight/2;
   const offsetX = mapCenterX - ((stageBounds.minX+stageBounds.maxX)/2 + hunter.position.x)*scale;
   const offsetY = mapCenterY - ((stageBounds.minZ+stageBounds.maxZ)/2 + hunter.position.z)*scale;

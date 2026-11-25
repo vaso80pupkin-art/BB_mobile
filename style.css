@@ -230,7 +230,7 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
 .build-stages b{color:#ddb858}
 .bloodstain-hint{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(60,15,15,0.9);border:2px solid #a83838;padding:8px 20px;color:#dd8888;font-size:12px;letter-spacing:2px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;white-space:nowrap}
 .bloodstain-hint.show{opacity:1}
-.tool-hotbar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:none;gap:8px;pointer-events:auto;z-index:22}
+.tool-hotbar{position:absolute;bottom:20px;left:calc(50% - 120px);transform:translateX(-50%);display:none;gap:8px;pointer-events:auto;z-index:22}
 .tool-hotbar.show{display:flex}
 .tool-slot{width:52px;height:52px;background:radial-gradient(circle,rgba(24,16,10,0.9),rgba(6,3,2,0.95));border:2px solid #5a3a20;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer}
 .tool-slot:active{transform:scale(0.9)}
@@ -466,3 +466,10 @@ body{overflow:hidden;background:#000;font-family:'Cinzel',serif;user-select:none
   .minimap{top:50px;left:10px;width:100px;height:100px;border-radius:6px}
   .minimap-canvas{display:block;width:100%;height:100%}
 }
+
+/* Requested menu placement and quick-item alignment; control handlers remain untouched. */
+#mainMenu .menu-btn{left:clamp(12px,3vw,28px);min-width:150px;padding:7px 30px;margin:4px;font-size:8px;letter-spacing:2px;line-height:1.2}
+#btnStart{bottom:clamp(58px,14vh,72px)}
+#btnContinue{bottom:clamp(26px,6vh,34px)}
+@media (max-width:600px){.tool-hotbar{left:calc(50% - 90px)}}
+@media (orientation:landscape){.tool-hotbar{left:calc(50% - clamp(0px,calc(50vw - 232px),104px))}}

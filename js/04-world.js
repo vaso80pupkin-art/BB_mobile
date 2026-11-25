@@ -128,6 +128,7 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
     }
   }
   addStairSideFence(group,width,lowerY,upperY,run,fenceMaterial);
+  addStairLandingSideFence(group,x,z,width,upperY,run,fenceMaterial);
   group.position.set(x,0,z);scene.add(group);envObjects.push({mesh:group});
   stairs.push({x,z,lowerY,upperY,run,width,style});
   return {x0:x-width/2-0.65,x1:x+width/2+0.65,z0:z-0.8,z1:z+run+0.8};
@@ -174,6 +175,40 @@ function addStairSideFence(group,width,lowerY,upperY,run,material){
   }
   rails.instanceMatrix.needsUpdate=true;rails.name='stair-waist-fence-rails';
   rails.castShadow=true;rails.receiveShadow=true;rails.frustumCulled=false;group.add(rails);
+}
+
+function addStairLandingSideFence(group,x,z,width,upperY,run,material){
+  const landingDepth=3.5,fenceHeight=3.8,sideOffset=width/2+0.14;
+  const marker=new THREE.Object3D();
+  const postGeometry=new THREE.BoxGeometry(0.24,fenceHeight,0.24);
+  const posts=new THREE.InstancedMesh(postGeometry,material,2);
+  let postIndex=0;
+  for(const side of [-1,1]){
+    marker.position.set(side*sideOffset,upperY+fenceHeight/2,run+landingDepth);
+    marker.rotation.set(0,0,0);marker.scale.set(1,1,1);marker.updateMatrix();
+    posts.setMatrixAt(postIndex++,marker.matrix);
+  }
+  posts.instanceMatrix.needsUpdate=true;posts.name='stair-landing-fence-posts';
+  posts.castShadow=true;posts.receiveShadow=true;posts.frustumCulled=false;group.add(posts);
+
+  const railGeometry=new THREE.BoxGeometry(0.24,0.18,landingDepth);
+  const rails=new THREE.InstancedMesh(railGeometry,material,4);
+  let railIndex=0;
+  for(const side of [-1,1])for(const heightRatio of [0.5,0.98]){
+    marker.position.set(side*sideOffset,upperY+fenceHeight*heightRatio,run+landingDepth/2);
+    marker.rotation.set(0,0,0);marker.scale.set(1,1,1);marker.updateMatrix();
+    rails.setMatrixAt(railIndex++,marker.matrix);
+  }
+  rails.instanceMatrix.needsUpdate=true;rails.name='stair-landing-fence-rails';
+  rails.castShadow=true;rails.receiveShadow=true;rails.frustumCulled=false;group.add(rails);
+
+  const halfWidth=0.18;
+  for(const side of [-1,1]){
+    const railX=x+side*sideOffset,minZ=z+run-0.12,maxZ=z+run+landingDepth+0.12;
+    wallColliders.push({minX:railX-halfWidth,maxX:railX+halfWidth,minY:upperY,maxY:upperY+fenceHeight,
+      minZ,maxZ,cx:railX,cy:upperY+fenceHeight/2,cz:(minZ+maxZ)/2,
+      w:halfWidth*2,h:fenceHeight,d:maxZ-minZ,floorY:upperY,stairLandingFence:true});
+  }
 }
 
 function zOffset(t,run){return t*run;}
@@ -440,6 +475,15 @@ function getGeneratedDungeonWallColliders(layout){
         }
         boxes.push({minX:cx-w/2,maxX:cx+w/2,minY:floorY,maxY:floorY+h,minZ:cz-d/2,maxZ:cz+d/2,cx,cy:floorY+h/2,cz,w,h,d,floorY});
       }
+    }
+  });
+  (layout.staircases||[]).forEach(stair=>{
+    const landingDepth=3.5,halfWidth=0.18,sideOffset=stair.width/2+0.25;
+    for(const side of [-1,1]){
+      const cx=stair.x+side*sideOffset,minZ=stair.z+stair.run-0.12,maxZ=stair.z+stair.run+landingDepth+0.12;
+      boxes.push({minX:cx-halfWidth,maxX:cx+halfWidth,minY:stair.upper_y,maxY:stair.upper_y+3.8,
+        minZ,maxZ,cx,cy:stair.upper_y+1.9,cz:(minZ+maxZ)/2,
+        w:halfWidth*2,h:3.8,d:maxZ-minZ,floorY:stair.upper_y,stairLandingFence:true});
     }
   });
   return boxes;
