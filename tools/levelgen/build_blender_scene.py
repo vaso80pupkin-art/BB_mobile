@@ -42,6 +42,25 @@ class MeshBuilder:
             self.faces.append(tuple(base + i for i in face))
             self.face_uvs.append(repeat)
 
+    def sloped_box(self, center, size, angle, uv_repeat=(1.0, 1.0)):
+        cx, cy, cz = center
+        sx, sy, sz = (v * 0.5 for v in size)
+        c, s = math.cos(angle), math.sin(angle)
+        base = len(self.verts)
+        for x, y, z in [
+            (-sx, -sy, -sz), (sx, -sy, -sz), (sx, sy, -sz), (-sx, sy, -sz),
+            (-sx, -sy, sz), (sx, -sy, sz), (sx, sy, sz), (-sx, sy, sz),
+        ]:
+            self.verts.append((cx + x, cy + y*c - z*s, cz + y*s + z*c))
+        face_data = [
+            ((0, 3, 2, 1), uv_repeat), ((4, 5, 6, 7), uv_repeat),
+            ((0, 1, 5, 4), uv_repeat), ((1, 2, 6, 5), uv_repeat),
+            ((2, 3, 7, 6), uv_repeat), ((3, 0, 4, 7), uv_repeat),
+        ]
+        for face, repeat in face_data:
+            self.faces.append(tuple(base + i for i in face))
+            self.face_uvs.append(repeat)
+
     def cylinder(self, center, radius, depth, sides=12):
         cx, cy, cz = center
         base = len(self.verts)
@@ -242,9 +261,18 @@ def build_scene(layout_path: Path, out_dir: Path):
             z = stair["z"] + (i + 0.5) * tread
             y = stair["lower_y"] + t * rise - 0.16
             stair_mesh.box((stair["x"], y, z), (sw, 0.32, tread * 1.05), (1.0, 0.7))
-        # Heavy cheek blocks make each stair read as a stone ascent from below.
+        # Low waist-height side fences leave the space below each stair flight open.
+        fence_height = 3.8
+        rail_length = math.sqrt(run * run + rise * rise)
+        rail_angle = math.atan2(run, rise)
+        post_count = max(2, math.ceil(run / 3.5))
         for side in (-1, 1):
-            stair_mesh.box((stair["x"] + side * (sw * 0.5 + 0.25), rise * 0.5, stair["z"] + run * 0.5), (0.45, rise, run), (0.5, 2.0))
+            rail_x = stair["x"] + side * (sw * 0.5 + 0.25)
+            for i in range(post_count + 1):
+                t = i / post_count
+                stair_mesh.box((rail_x, stair["lower_y"] + t * rise + fence_height * 0.5, stair["z"] + t * run), (0.28, fence_height, 0.28), (0.5, 2.0))
+            for height_ratio in (0.5, 0.98):
+                stair_mesh.sloped_box((rail_x, stair["lower_y"] + rise * 0.5 + fence_height * height_ratio, stair["z"] + run * 0.5), (0.24, rail_length, 0.28), rail_angle, (0.5, 2.0))
 
     # Bridge supports: ribs and clustered piers at both over-under crossings.
     for idx, (x, z) in enumerate(layout["crossings"]):

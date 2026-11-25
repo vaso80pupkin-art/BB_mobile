@@ -96,6 +96,7 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
   const isStone=style==='stone',isRope=style==='rope';
   const treadMaterial=new THREE.MeshStandardMaterial({color:isStone?0x27252a:(isRope?0x513a24:0x4d3020),roughness:isStone?0.9:0.82,bumpMap:createSurfaceTextures().wallBump,bumpScale:0.11});
   const edge=new THREE.MeshStandardMaterial({color:isStone?0x4a454b:(isRope?0x39281c:0x31231c),roughness:0.86,metalness:isStone?0.14:0.02});
+  const fenceMaterial=new THREE.MeshStandardMaterial({color:isStone?0x625e67:(isRope?0x59432e:0x68482f),roughness:0.82,metalness:isStone?0.08:0.02});
   if(isRope){
     const rungCount=Math.floor(run/1.15);
     const rungGeometry=new THREE.CylinderGeometry(0.12,0.12,width,8);
@@ -121,19 +122,12 @@ function addWalkableStaircase(x,z,lowerY,upperY,run=28,width=4.8,style='stone'){
       const riser=new THREE.Mesh(boxGeometry,edge);riser.scale.set(width,Math.max(0.2,stepRise-0.16),0.15);
       riser.position.set(0,lowerY+(i+0.5)*stepRise,i*tread);riser.castShadow=true;group.add(riser);
     }
-    const railLength=Math.sqrt(run*run+rise*rise),railAngle=Math.atan2(run,rise);
     for(const side of [-1,1]){
-      const rail=new THREE.Mesh(boxGeometry,edge);rail.scale.set(isStone?0.22:0.16,railLength,isStone?0.34:0.22);
-      rail.position.set(side*(width/2+0.12),(lowerY+upperY)/2+(isStone?0.92:0.86),run/2);rail.rotation.x=railAngle;rail.castShadow=true;group.add(rail);
-      const postCount=Math.floor(run/4);
-      for(let i=0;i<=postCount;i++){
-        const t=i/postCount,post=new THREE.Mesh(boxGeometry,edge);post.scale.set(0.2,1.0,0.2);
-        post.position.set(side*(width/2+0.12),lowerY+t*rise+0.45,t*run);post.castShadow=true;group.add(post);
-      }
       const railX=x+side*(width/2+0.12),railHalfWidth=isStone?0.24:0.18;
       wallColliders.push({minX:railX-railHalfWidth,maxX:railX+railHalfWidth,minY:lowerY,maxY:upperY+1.4,minZ:z-0.2,maxZ:z+run+0.2,cx:railX,cy:(lowerY+upperY)/2,cz:z+run/2,w:railHalfWidth*2,h:upperY-lowerY+1.4,d:run+0.4,floorY:lowerY,stairGuard:true,stairX:x,stairZ:z,stairLowerY:lowerY,stairUpperY:upperY,stairRun:run});
     }
   }
+  addStairSideFence(group,width,lowerY,upperY,run,fenceMaterial);
   group.position.set(x,0,z);scene.add(group);envObjects.push({mesh:group});
   stairs.push({x,z,lowerY,upperY,run,width,style});
   return {x0:x-width/2-0.65,x1:x+width/2+0.65,z0:z-0.8,z1:z+run+0.8};
@@ -149,6 +143,37 @@ function registerGeneratedDungeonStaircase(stair){
       w:halfWidth*2,h:upperY-lowerY,d:run+0.4,floorY:lowerY,stairGuard:true,
       stairX:x,stairZ:z,stairLowerY:lowerY,stairUpperY:upperY,stairRun:run});
   }
+}
+
+function addStairSideFence(group,width,lowerY,upperY,run,material){
+  const rise=upperY-lowerY;
+  const fenceHeight=3.8;
+  const sideOffset=width/2+0.14;
+  const postCount=Math.max(2,Math.ceil(run/3.5));
+  const postGeometry=new THREE.BoxGeometry(0.24,fenceHeight,0.24);
+  const posts=new THREE.InstancedMesh(postGeometry,material,(postCount+1)*2);
+  const marker=new THREE.Object3D();
+  let postIndex=0;
+  for(const side of [-1,1])for(let i=0;i<=postCount;i++){
+    const t=i/postCount;
+    marker.position.set(side*sideOffset,lowerY+rise*t+fenceHeight/2,run*t);
+    marker.rotation.set(0,0,0);marker.scale.set(1,1,1);marker.updateMatrix();
+    posts.setMatrixAt(postIndex++,marker.matrix);
+  }
+  posts.instanceMatrix.needsUpdate=true;posts.name='stair-waist-fence-posts';
+  posts.castShadow=true;posts.receiveShadow=true;posts.frustumCulled=false;group.add(posts);
+
+  const railLength=Math.sqrt(run*run+rise*rise),railAngle=Math.atan2(run,rise);
+  const railGeometry=new THREE.BoxGeometry(0.18,railLength,0.24);
+  const rails=new THREE.InstancedMesh(railGeometry,material,4);
+  let railIndex=0;
+  for(const side of [-1,1])for(const heightRatio of [0.5,0.98]){
+    marker.position.set(side*sideOffset,lowerY+rise/2+fenceHeight*heightRatio,run/2);
+    marker.rotation.set(railAngle,0,0);marker.scale.set(1,1,1);marker.updateMatrix();
+    rails.setMatrixAt(railIndex++,marker.matrix);
+  }
+  rails.instanceMatrix.needsUpdate=true;rails.name='stair-waist-fence-rails';
+  rails.castShadow=true;rails.receiveShadow=true;rails.frustumCulled=false;group.add(rails);
 }
 
 function zOffset(t,run){return t*run;}
