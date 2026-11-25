@@ -342,7 +342,6 @@ function setupMenuScene(){
 function loadLocation(idx){
   idx=Math.max(0,Math.min(LOCATIONS.length-1,idx|0));
   if(!canEnterLocation(idx)){notify('СЮЖЕТНЫЙ ПУТЬ ЕЩЁ ЗАКРЫТ');return false;}
-  altarFireRefs.length=0;altarFireLight=null;
   clearWorld();
   gameMode = GameMode.PLAYING;
   currentLocation = idx;

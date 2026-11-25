@@ -1,13 +1,40 @@
 let altarFireRefs=[];
 let altarFireLight=null;
+let altarEmberRefs=[];
+function createAltarFlameGeometry(){
+  const profile=[[0,0.31,0],[0.12,0.41,0.015],[0.34,0.32,0.045],[0.58,0.22,0.105],[0.79,0.13,0.16],[0.94,0.055,0.205],[1,0.008,0.225]];
+  const segments=9,vertices=[],indices=[];
+  profile.forEach(([y,r,shift])=>{
+    for(let i=0;i<segments;i++){
+      const angle=i/segments*Math.PI*2;
+      vertices.push(Math.cos(angle)*r+shift,y,Math.sin(angle)*r);
+    }
+  });
+  for(let row=0;row<profile.length-1;row++)for(let i=0;i<segments;i++){
+    const a=row*segments+i,b=row*segments+(i+1)%segments,c=(row+1)*segments+i,d=(row+1)*segments+(i+1)%segments;
+    indices.push(a,b,c,b,d,c);
+  }
+  const tip=vertices.length/3;vertices.push(0.23,1.04,0);
+  const last=(profile.length-1)*segments;
+  for(let i=0;i<segments;i++)indices.push(last+i,last+(i+1)%segments,tip);
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);geometry.computeVertexNormals();geometry.computeBoundingSphere();
+  return geometry;
+}
 function updateAltarFire(time){
   if(!altarFireRefs.length)return;
-  altarFireRefs.forEach((flame,index)=>{
-    const flicker=1+Math.sin(time*9+index*1.8)*0.1+Math.sin(time*15+index*0.7)*0.045;
-    flame.scale.y=flame.userData.baseScaleY*flicker;
-    flame.position.y=flame.userData.baseY+Math.sin(time*12+index)*0.025;
+  altarFireRefs.forEach(flame=>{
+    const data=flame.userData,phase=data.phase;
+    const pulse=0.93+Math.sin(time*8.5+phase)*0.095+Math.sin(time*15.7+phase*0.63)*0.045;
+    flame.scale.set(data.baseScaleX*(1+Math.sin(time*7+phase)*0.035),data.baseScaleY*pulse,data.baseScaleZ*(1+Math.sin(time*9+phase)*0.045));
+    flame.position.set(data.baseX+Math.sin(time*4.2+phase)*0.035,data.baseY+Math.sin(time*10+phase)*0.018,data.baseZ+Math.cos(time*3.7+phase)*0.025);
+    flame.rotation.z=data.baseRotation+Math.sin(time*5.4+phase)*0.065;
   });
-  if(altarFireLight)altarFireLight.intensity=1.15+Math.sin(time*11)*0.18+Math.sin(time*17)*0.09;
+  altarEmberRefs.forEach(ember=>{
+    const data=ember.userData,p=(time*data.speed+data.phase)%1;
+    ember.position.set(data.baseX+Math.sin(time*4+data.phase)*0.11,data.baseY+p*data.rise,data.baseZ+Math.cos(time*3.2+data.phase)*0.08);
+    ember.material.opacity=(1-p)*0.76;ember.scale.setScalar(data.baseSize*(1-p*0.38));
+  });
+  if(altarFireLight){const flicker=0.92+Math.sin(time*8.2)*0.08+Math.sin(time*15.3+0.7)*0.045;altarFireLight.intensity=1.8*flicker;altarFireLight.position.y=altarFireLight.userData.baseY+Math.sin(time*6.5)*0.025;}
 }
 
 function createCobblestoneFloor(width,ox,oz,depth=width,levelY=0,holes=[],ceiling=false,segmentSpacing=3){
@@ -254,13 +281,25 @@ function buildOedonChapelFoyer(room,floorY){
     const glass=new THREE.Mesh(glassGeometry,stainedGlass);
     glass.position.set(0,0,0.34);window.add(glass);
     const leadMat=new THREE.MeshStandardMaterial({color:0x20232c,roughness:0.62,metalness:0.18});
+    const addLeadStroke=(points,radius=0.045)=>{
+      const curve=new THREE.CatmullRomCurve3(points.map(([px,py])=>new THREE.Vector3(px,py,0.47)));
+      const stroke=new THREE.Mesh(new THREE.TubeGeometry(curve,20,radius,5,false),leadMat);stroke.castShadow=false;stroke.receiveShadow=false;window.add(stroke);
+    };
     const mullion=new THREE.Mesh(new THREE.BoxGeometry(0.085,6.2,0.055),leadMat);mullion.position.set(0,3.05,0.42);window.add(mullion);
     for(const xSide of [-0.92,0.92]){const bar=new THREE.Mesh(new THREE.BoxGeometry(0.055,5.6,0.05),leadMat);bar.position.set(xSide,2.85,0.42);window.add(bar);}
-    for(const y of [1.8,3.75,5.25]){const bar=new THREE.Mesh(new THREE.BoxGeometry(3.1,0.07,0.05),leadMat);bar.position.set(0,y,0.42);window.add(bar);}
+    for(const y of [0.92,1.8,3.75,5.25,6.12]){const bar=new THREE.Mesh(new THREE.BoxGeometry(3.1,0.07,0.05),leadMat);bar.position.set(0,y,0.42);window.add(bar);}
+    for(const side of [-1,1]){
+      const c=side*1.34;
+      addLeadStroke([[c-0.38,0.35],[c-0.38,3.85],[c-0.32,4.52],[c,5.18],[c+0.32,4.52],[c+0.38,3.85],[c+0.38,0.35]],0.038);
+      const lancetBar=new THREE.Mesh(new THREE.BoxGeometry(0.045,3.35,0.04),leadMat);lancetBar.position.set(c,2.0,0.46);window.add(lancetBar);
+    }
     const rose=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.035,6,20),brass);rose.position.set(0,4.75,0.43);window.add(rose);
+    const roseInner=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.028,5,18),leadMat);roseInner.position.set(0,4.75,0.455);window.add(roseInner);
     for(let spoke=0;spoke<4;spoke++){
       const ray=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.76,0.045),leadMat);ray.position.set(0,4.75,0.44);ray.rotation.z=spoke*Math.PI/4;window.add(ray);
     }
+    const roseGem=new THREE.Mesh(new THREE.SphereGeometry(0.075,8,6),new THREE.MeshBasicMaterial({color:0xd94d56,toneMapped:false}));roseGem.position.set(0,4.75,0.49);window.add(roseGem);
+    addLeadStroke([[-1.72,0.36],[-1.72,4.1],[-1.58,5.25],[-1.12,6.35],[0,6.72],[1.12,6.35],[1.58,5.25],[1.72,4.1],[1.72,0.36]],0.045);
     const glassGlow=new THREE.PointLight(0x779bd0,0.42,10,2);glassGlow.position.set(0,4.1,0.22);window.add(glassGlow);
     window.position.set(x,floorY+1.9,windowZ);group.add(window);
   });
@@ -273,15 +312,26 @@ function buildOedonChapelFoyer(room,floorY){
   brazier.position.set(cx,floorY+1.56,altarZ);brazier.castShadow=true;group.add(brazier);
   const embers=new THREE.Mesh(new THREE.CircleGeometry(0.63,16),new THREE.MeshBasicMaterial({color:0xff4d14,toneMapped:false}));
   embers.rotation.x=-Math.PI/2;embers.position.set(cx,floorY+1.75,altarZ);group.add(embers);
-  const flameShapes=[[0,0.88,0.25,0xffa52e],[0.34,0.72,0.19,0xff6b1f],[-0.31,0.66,0.18,0xff7a21],[0.08,0.56,0.16,0xfff0a0]];
-  const flameGeometry=new THREE.SphereGeometry(1,10,8);
+  const flameShapes=[[0,1.14,0.39,0xff8a20],[0.24,0.92,0.31,0xff5f16],[-0.23,0.86,0.29,0xff741b],[0.02,0.73,0.22,0xffe58a]];
+  const flameGeometry=createAltarFlameGeometry();
   flameShapes.forEach(([offset,height,radius,color],index)=>{
-    const flame=new THREE.Mesh(flameGeometry,new THREE.MeshBasicMaterial({color,toneMapped:false}));
-    flame.scale.set(radius,height/2,radius*0.82);flame.userData.baseScaleY=height/2;
-    flame.position.set(cx+offset,floorY+1.76+height/2,altarZ+(index%2?0.12:-0.1));flame.userData.baseY=flame.position.y;
-    flame.rotation.z=(index%2?1:-1)*0.12;group.add(flame);altarFireRefs.push(flame);
+    const material=new THREE.MeshBasicMaterial({color,toneMapped:false,transparent:true,opacity:index===0?0.88:0.94,depthWrite:false,side:THREE.DoubleSide});
+    const flame=new THREE.Mesh(flameGeometry,material);
+    flame.scale.set(radius/0.41,height,radius/0.41);
+    flame.position.set(cx+offset,floorY+1.76,altarZ+(index%2?0.12:-0.1));
+    flame.rotation.z=(index%2?1:-1)*0.08;
+    flame.userData={baseX:flame.position.x,baseY:flame.position.y,baseZ:flame.position.z,baseScaleX:flame.scale.x,baseScaleY:height,baseScaleZ:flame.scale.z,baseRotation:flame.rotation.z,phase:index*1.73};
+    flame.renderOrder=4;group.add(flame);altarFireRefs.push(flame);
   });
-  altarFireLight=new THREE.PointLight(0xff762b,1.35,16,2);altarFireLight.position.set(cx,floorY+2.25,altarZ);group.add(altarFireLight);
+  const emberGeometry=new THREE.SphereGeometry(1,6,5),emberColors=[0xffdb83,0xff8b35,0xffc25e];
+  emberColors.forEach((color,index)=>{
+    const material=new THREE.MeshBasicMaterial({color,toneMapped:false,transparent:true,opacity:0.75,depthWrite:false});
+    const ember=new THREE.Mesh(emberGeometry,material),phase=index*0.37;
+    ember.scale.setScalar(0.045+index*0.008);ember.position.set(cx,floorY+1.86,altarZ);ember.renderOrder=5;
+    ember.userData={baseX:cx,baseY:floorY+1.86,baseZ:altarZ,baseSize:0.045+index*0.008,phase,speed:0.55+index*0.12,rise:0.7+index*0.12};
+    group.add(ember);altarEmberRefs.push(ember);
+  });
+  altarFireLight=new THREE.PointLight(0xff762b,1.8,18,2);altarFireLight.position.set(cx,floorY+2.25,altarZ);altarFireLight.userData.baseY=altarFireLight.position.y;group.add(altarFireLight);
 
   const urnPoints=[new THREE.Vector2(0,0),new THREE.Vector2(0.36,0),new THREE.Vector2(0.52,0.24),new THREE.Vector2(0.45,0.48),new THREE.Vector2(0.68,0.82),new THREE.Vector2(0.62,1.15),new THREE.Vector2(0.38,1.38),new THREE.Vector2(0.4,1.52),new THREE.Vector2(0.5,1.58),new THREE.Vector2(0,1.58)];
   const urnGeo=new THREE.LatheGeometry(urnPoints,16);
@@ -1402,6 +1452,7 @@ function disposeWorldObjectResources(root,shared,disposed){
 
 function clearWorld(){
   if(!scene) return;
+  altarFireRefs.length=0;altarEmberRefs.length=0;altarFireLight=null;
   if(worldTutorialTimers) worldTutorialTimers.forEach(clearTimeout);
   worldTutorialTimers=[];
   clearEnemyModelAttachQueue();
