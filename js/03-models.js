@@ -718,8 +718,8 @@ function processEnemyModelAttachment(){
 function clearEnemyModelAttachQueue(){enemyModelAttachQueue.length=0;}
 
 const ENEMY_MODEL_ASSETS = {
-  paladin: {path:'./MOB/paladin.glb',height:4.4,footprint:5.4},
-  moonPresence: {path:'./MOB/spider/spider1.glb',height:8.5,footprint:11.5,fallback:'paladin'}
+  paladin: {path:'./MOB/optimized/beast_low.glb',height:4.4,footprint:5.4},
+  moonPresence: {path:'./MOB/optimized/moon_presence_low.glb',height:8.5,footprint:11.5,fallback:'paladin'}
 };
 
 function findEmissiveMaterial(root){
@@ -883,7 +883,7 @@ function loadVisualAssets(){
     hunterEnemyLoadStarted=false;
     console.warn('[BB] Не удалось загрузить 3D-модель охотника; используется запасная модель.', error);
   });
-  modelLoader.load('./MOB/spider/spider.glb', gltf=>{
+  modelLoader.load('./MOB/optimized/spider_low.glb', gltf=>{
     spiderModelBundle = gltf;
     enemies.filter(enemy=>enemy.type === 'spider').forEach(attachSpiderModel);
   }, undefined, error=>{
