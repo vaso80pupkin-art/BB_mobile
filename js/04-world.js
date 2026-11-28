@@ -710,15 +710,70 @@ function updateAmbientCreatures(time){
   });
 }
 
-function roomSpawnPoint(room,seed){
+function roomSpawnRadius(type='hunter'){
+  return type==='boss'?4.2:(type==='spider'?2.35:(type==='beast'?1.65:1.05));
+}
+
+function isInsideSpawnExclusion(x,z,exclusion,padding=0){
+  return x>exclusion.x0-padding&&x<exclusion.x1+padding&&z>exclusion.z0-padding&&z<exclusion.z1+padding;
+}
+
+function roomSpawnPoint(room,seed,options={}){
   const random=seededRandom(seed),grid=room.grid,cells=[];
+  const radius=Number.isFinite(options.radius)?options.radius:roomSpawnRadius(options.type||'hunter');
+  const bodyHeight=Number.isFinite(options.bodyHeight)?options.bodyHeight:(options.type==='boss'?9:5);
+  const exclusions=stageSpawnExclusionsByFloor[room.floorIndex]||[];
+  const avoidPoints=options.avoidPoints||[];
   for(let y=1;y<mazeSize-1;y++) for(let x=1;x<mazeSize-1;x++) if(grid[y][x]===0){
     const wx=room.roomX+(x+0.5)*cellSize,wz=room.roomZ+(y+0.5)*cellSize;
     const sx=room.roomX+ROOM_WORLD_SIZE/2,sz=room.roomZ+ROOM_WORLD_SIZE/2;
-    if(Math.hypot(wx-sx,wz-sz)>10) cells.push({x:wx,z:wz});
+    if(Math.hypot(wx-sx,wz-sz)<=10) continue;
+    if(exclusions.some(exclusion=>isInsideSpawnExclusion(wx,wz,exclusion,radius+0.35))) continue;
+    if(avoidPoints.some(point=>Math.hypot(wx-point.x,wz-point.z)<radius+(point.radius||0)+0.7)) continue;
+    if(typeof checkWall==='function'&&checkWall(wx,wz,radius,room.floorY,bodyHeight)) continue;
+    cells.push({x:wx,z:wz});
   }
-  if(!cells.length) return {x:room.roomX+ROOM_WORLD_SIZE/2,z:room.roomZ+ROOM_WORLD_SIZE/2};
+  if(!cells.length){
+    const fallback={x:room.roomX+ROOM_WORLD_SIZE/2,z:room.roomZ+ROOM_WORLD_SIZE/2};
+    const safe=cells.find(point=>point);
+    return safe||fallback;
+  }
   return cells[Math.floor(random()*cells.length)];
+}
+
+function roomPrimaryFacingTarget(room){
+  const anchor=stageSpawnFacingTargets[`${room.floorIndex}:${room.roomIndex}`];
+  if(anchor) return anchor;
+  const edges=getStageRoomEdges(currentLocation,room.floorIndex);
+  const neighbors=[];
+  edges.forEach(edge=>{
+    const [a,b]=edge;
+    if(a!==room.roomIndex&&b!==room.roomIndex)return;
+    const neighbor=a===room.roomIndex?b:a;
+    neighbors.push(neighbor);
+  });
+  const targetRoom=ROOMS_PER_FLOOR-1;
+  if(neighbors.length){
+    const distanceFromTarget=new Map([[targetRoom,0]]),queue=[targetRoom];
+    while(queue.length){
+      const current=queue.shift();
+      edges.forEach(edge=>{
+        const [a,b]=edge;if(a!==current&&b!==current)return;
+        const next=a===current?b:a;
+        if(!distanceFromTarget.has(next)){distanceFromTarget.set(next,distanceFromTarget.get(current)+1);queue.push(next);}
+      });
+    }
+    neighbors.sort((a,b)=>(distanceFromTarget.get(a)??999)-(distanceFromTarget.get(b)??999));
+    const next=neighbors[0],col=next%ROOM_COLS,row=Math.floor(next/ROOM_COLS);
+    return {x:stageBounds.minX+(col+0.5)*ROOM_WORLD_SIZE,z:stageBounds.minZ+(row+0.5)*ROOM_WORLD_SIZE};
+  }
+  return {x:room.roomX+ROOM_WORLD_SIZE/2,z:room.roomZ+ROOM_WORLD_SIZE/2};
+}
+
+function roomSpawnRotation(room,point){
+  const target=roomPrimaryFacingTarget(room);
+  const dx=target.x-point.x,dz=target.z-point.z;
+  return Math.abs(dx)+Math.abs(dz)>0.001?Math.atan2(dx,dz):0;
 }
 
 function roomAtWorldPosition(x,z){
@@ -1390,9 +1445,10 @@ function buildCastleInterior(floorRooms,bossRoom){
   });
   scene.add(webs);envObjects.push({mesh:webs});
   [floorRooms[0][2],floorRooms[0][7]].forEach(room=>{
-    const point=roomSpawnPoint(room,room.roomIndex+4901);
-    [-1,1].forEach(side=>{
-      const before=enemies.length;spawnEnemy('spider',point.x+side*1.25,point.z,room.floorY);
+    const point=roomSpawnPoint(room,room.roomIndex+4901,{type:'spider'});
+    const secondPoint=roomSpawnPoint(room,room.roomIndex+5901,{type:'spider',avoidPoints:[{x:point.x,z:point.z,radius:roomSpawnRadius('spider')}]});
+    [point,secondPoint].forEach(spawnPoint=>{
+      const before=enemies.length;spawnEnemy('spider',spawnPoint.x,spawnPoint.z,room.floorY,roomSpawnRotation(room,spawnPoint));
       const ambush=enemies[before];if(ambush){ambush.ceilingAmbush=true;ambush.ambushRange=8;ambush.ambushDrop=0;}
     });
   });

@@ -129,6 +129,8 @@ const STAGE_WORLD_WIDTH = ROOM_COLS * ROOM_WORLD_SIZE, STAGE_WORLD_DEPTH = ROOM_
 let stageBounds = {minX:-STAGE_WORLD_WIDTH/2,minZ:-STAGE_WORLD_DEPTH/2,maxX:STAGE_WORLD_WIDTH/2,maxZ:STAGE_WORLD_DEPTH/2};
 let currentFloorIndex = 0, lastRoomNotice = '';
 let currentLocation = 0;
+let stageSpawnExclusionsByFloor = [[], []];
+let stageSpawnFacingTargets = Object.create(null);
 let campaignProgress = { cityBoss:false, buildingBoss:false, mountainBoss:false, liftActivated:false, castleChainShot:false, brokenSecrets:{} };
 const LOCATIONS = ['ЦЕНТРАЛЬНЫЙ ЯРНАМ','КАФЕДРАЛЬНЫЙ КВАРТАЛ','ГОРНЫЙ ПЕРЕВАЛ','ПАУЧИЙ ЗАМОК'];
 const STAGE_ROUTE_PLANS = [

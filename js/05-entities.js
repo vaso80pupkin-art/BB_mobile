@@ -1,4 +1,4 @@
-function spawnEnemy(type,x,z,floorY=0){
+function spawnEnemy(type,x,z,floorY=0,rotationY=0){
   if(!scene) return;
   const g = new THREE.Group();
   let hp=50,maxHp=50,speed=0.07,attackRange=2.4,cooldown=1.6;
@@ -150,11 +150,12 @@ function spawnEnemy(type,x,z,floorY=0){
 
   const hpBar = addHPBar(g,type==='beast'?2.4:(type==='spider'?2.25:1.5));
   g.position.set(x,floorY,z);
+  g.rotation.y=rotationY;
   scene.add(g);
   const enemy = {
     mesh:g,type,hp,maxHp,speed,attackRange,cooldown,lastAttack:0,detected:false,
     detectionRange,radius,echoes,hpBar,state:'idle',stateTime:0,stunned:0,damage,
-    homeX:x,homeY:floorY,homeZ:z,floorY, attackWindup:0.4, lastAttackStartTime:0, canParry: true, burning:0,
+    homeX:x,homeY:floorY,homeZ:z,floorY,spawnRotationY:rotationY, attackWindup:0.4, lastAttackStartTime:0, canParry: true, burning:0,
     legs: legs,
     animPhase: Math.random() * Math.PI * 2
   };
@@ -165,7 +166,7 @@ function spawnEnemy(type,x,z,floorY=0){
   else if(type === 'hunter') requestEnemyVisualModel('skullHunter');
   else if(type === 'beast') requestEnemyVisualModel('paladin');
 }
-function spawnBoss(name,x,z,floorY=0){
+function spawnBoss(name,x,z,floorY=0,rotationY=0){
   if(!scene) return;
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({color:0x3a2e22,roughness:0.98,metalness:0.05});
@@ -213,6 +214,7 @@ function spawnBoss(name,x,z,floorY=0){
   }
   const hpBar = addHPBar(g,6.5);
   g.position.set(x,floorY,z);
+  g.rotation.y=rotationY;
   scene.add(g);
   const ngMult = 1 + player.ngPlus * 0.5;
   const bossEnemy={
@@ -222,7 +224,7 @@ function spawnBoss(name,x,z,floorY=0){
     state:'idle',stateTime:0,stunned:0,damage:Math.floor(45*ngMult),
     phase2:false,material:mat,homeX:x,homeY:floorY,homeZ:z,floorY,
     attackWindup:0.55, lastAttackStartTime:0, canParry: false,
-    phase: 1, phase2Unlocked: false, burning:0,
+    phase: 1, phase2Unlocked: false, burning:0,spawnRotationY:rotationY,
     legs: legs,
     animPhase: Math.random() * Math.PI * 2
   };
@@ -535,6 +537,25 @@ function loadLocation(idx){
   const lowerFloorOpenings=idx===2?[mountainRoute.wellOpening,mountainRoute.spiralOpening,gothicLayout.void]:exteriorVoids;
   mountainFloorVoids=idx===2?lowerFloorOpenings:[];
   const upperFloorHoles=stairHoles.concat(mountainRoute?mountainRoute.fallOpenings:[],idx===2?[{x0:gothicLayout.void.x0-4,x1:gothicLayout.void.x1+4,z0:gothicLayout.void.z0-4,z1:gothicLayout.void.z1+4}]:[],exteriorVoids);
+  stageSpawnExclusionsByFloor=[lowerFloorOpenings,upperFloorHoles];
+  stageSpawnFacingTargets=Object.create(null);
+  stairSpecs.forEach(spec=>{
+    const target={x:spec.x,z:spec.z+spec.run*0.5};
+    if(spec.col!==undefined&&spec.row!==undefined){
+      const roomIndex=spec.row*ROOM_COLS+spec.col;
+      stageSpawnFacingTargets[`0:${roomIndex}`]=target;
+      stageSpawnFacingTargets[`1:${roomIndex}`]=target;
+    }else{
+      floorRooms.flat().forEach(room=>{
+        const centerX=room.roomX+ROOM_WORLD_SIZE/2,centerZ=room.roomZ+ROOM_WORLD_SIZE/2;
+        if(Math.hypot(centerX-spec.x,centerZ-spec.z)<ROOM_WORLD_SIZE*0.55){
+          stageSpawnFacingTargets[`${room.floorIndex}:${room.roomIndex}`]=target;
+        }
+      });
+    }
+  });
+  stageSpawnFacingTargets[`0:${ROOM_COLS+3}`]={x:elevatorX,z:elevatorZ};
+  stageSpawnFacingTargets[`1:${ROOM_COLS+3}`]={x:elevatorX,z:elevatorZ};
   const floorMargin=10;
   const floorSegmentSpacing=idx===2?6:3;
   createCobblestoneFloor(STAGE_WORLD_WIDTH+floorMargin*2,ox-floorMargin,oz-floorMargin,STAGE_WORLD_DEPTH+floorMargin*2,FLOOR_LEVELS[0],lowerFloorOpenings,false,floorSegmentSpacing);
@@ -599,18 +620,19 @@ function loadLocation(idx){
     for(const room of floorRooms[floor]){
       const index=room.roomIndex,isStart=floor===0&&index===0,isBoss=floor===1&&index===ROOMS_PER_FLOOR-1;
       if(isStart) continue;
-      const point=roomSpawnPoint(room,(idx+1)*100003+(floor+1)*19997+(index+1)*7919);
       if(!isBoss){
         const palette=enemyPalettes[idx]||enemyPalettes[0];
         const type=palette[(index+floor*2)%palette.length];
-        spawnEnemy(type,point.x,point.z,room.floorY);
-      }
-      if(index%2===1&&!isBoss){
-        const chestPoint=roomSpawnPoint(room,(idx+1)*65537+(floor+1)*8123+index*1973);
+        const point=roomSpawnPoint(room,(idx+1)*100003+(floor+1)*19997+(index+1)*7919,{type});
+        spawnEnemy(type,point.x,point.z,room.floorY,roomSpawnRotation(room,point));
+        if(index%2===1){
+          const chestPoint=roomSpawnPoint(room,(idx+1)*65537+(floor+1)*8123+index*1973,{avoidPoints:[{x:point.x,z:point.z,radius:roomSpawnRadius(type)}]});
+          spawnChest(chestPoint.x,chestPoint.z,room.floorY);
+        }
+        if((floor===0&&index===4)||(floor===1&&index===4)) spawnLantern(point.x,point.z,false,room.floorY);
+      } else if(index%2===1){
+        const chestPoint=roomSpawnPoint(room,(idx+1)*65537+(floor+1)*8123+index*1973,{type:'hunter'});
         spawnChest(chestPoint.x,chestPoint.z,room.floorY);
-      }
-      if((floor===0&&index===4)||(floor===1&&index===4)){
-        spawnLantern(point.x,point.z,false,room.floorY);
       }
     }
   }
@@ -618,10 +640,12 @@ function loadLocation(idx){
   if(centralStair)spawnLantern(centralStair.x,centralStair.z+centralStair.run+2,false,FLOOR_LEVELS[1]);
   const bossRoom=floorRooms[1][ROOMS_PER_FLOOR-1];
   const bossCell=Math.floor(mazeSize/2)+0.5;
-  const bx=bossRoom.roomX+bossCell*cellSize;
-  const bz=bossRoom.roomZ+bossCell*cellSize;
+  const bossPoint=roomSpawnPoint(bossRoom,(idx+1)*999983,{type:'boss'});
+  const bx=bossPoint.x;
+  const bz=bossPoint.z;
+  stageSpawnFacingTargets[`1:${ROOMS_PER_FLOOR-1}`]={x:bx-3,z:bz};
   if(idx===3) buildCastleInterior(floorRooms,bossRoom);
-  spawnBoss(idx===3?'ПАУЧЬЯ МАТРИАРХА':(bossNames[idx]||bossNames[0]),bx,bz,FLOOR_LEVELS[1]);
+  spawnBoss(idx===3?'ПАУЧЬЯ МАТРИАРХА':(bossNames[idx]||bossNames[0]),bx,bz,FLOOR_LEVELS[1],roomSpawnRotation(bossRoom,bossPoint));
   if(idx<2)addCampaignExit(idx+1,bx-3,bz,FLOOR_LEVELS[1]);
   updateStageLocationLabel(true);
 
