@@ -95,7 +95,7 @@ function updateEnemies(dt,time){
     }
     if(e.stunned>0){
       e.stunned -= dt;
-      e.mesh.position.y = e.floorY + Math.sin(time*15)*0.15;
+      e.mesh.position.y = e.floorY + (e.type==='spider' ? 0 : Math.sin(time*15)*0.15);
       animateEnemyLimbs(e, dt, time);
       return;
     }
@@ -118,7 +118,7 @@ function updateEnemies(dt,time){
     if(e.ambushDrop>0){e.ambushDrop=Math.max(0,e.ambushDrop-dt);e.mesh.position.y=e.floorY+1+7*(e.ambushDrop/0.45);return;}
     switch(e.state){
       case 'idle':
-        e.mesh.position.y = e.floorY + Math.sin(time*2+e.homeX)*0.05;
+        e.mesh.position.y = e.floorY + (e.type==='spider' ? 0 : Math.sin(time*2+e.homeX)*0.05);
         if(canDetect){
           e.state = 'alert'; e.stateTime = 0; e.detected = true;
           if(e.type==='boss'){
@@ -140,7 +140,7 @@ function updateEnemies(dt,time){
           if(!checkWall(nx,e.mesh.position.z,e.radius,e.floorY,e.type==='boss'?9:5)) e.mesh.position.x = nx;
           if(!checkWall(e.mesh.position.x,nz,e.radius,e.floorY,e.type==='boss'?9:5)) e.mesh.position.z = nz;
           e.mesh.rotation.y = Math.atan2(dx,dz);
-          if(e.type==='spider') e.mesh.position.y = e.floorY + Math.abs(Math.sin(time*14))*0.2;
+          if(e.type==='spider') e.mesh.position.y = e.floorY;
           else if(e.type==='boss') e.mesh.position.y = e.floorY + Math.sin(time*2.8)*0.3;
           else e.mesh.position.y = e.floorY + Math.sin(time*5)*0.2;
         }

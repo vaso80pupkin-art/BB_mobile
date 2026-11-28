@@ -655,6 +655,18 @@ function attachSpiderModelNow(enemy){
   const clips = bundle.animations || [];
   const visual = fitVisualModel(bundle.scene, 4.35, 8.4, true);
   if(!visual) return;
+  if(bundle === spiderModelBundle){
+    visual.rotation.x = Math.PI/2;
+    visual.updateMatrixWorld(true);
+    const orientedBounds = new THREE.Box3().setFromObject(visual);
+    const orientedCenter = orientedBounds.getCenter(new THREE.Vector3());
+    const orientedSize = orientedBounds.getSize(new THREE.Vector3());
+    visual.position.x -= orientedCenter.x;
+    visual.position.y -= orientedBounds.min.y;
+    visual.position.z -= orientedCenter.z;
+    visual.userData.visualHeight = orientedSize.y;
+    visual.updateMatrixWorld(true);
+  }
   setEnemyModelLayers(enemy,false);
   enemy.mesh.add(visual);
   visual.traverse(node=>{
@@ -666,6 +678,7 @@ function attachSpiderModelNow(enemy){
   enemy.modelRoot = visual;
   enemy.modelBaseY = visual.position.y;
   enemy.modelBaseZ = visual.position.z;
+  enemy.modelBaseRotationX = visual.rotation.x;
   enemy.modelBaseScaleY = visual.scale.y;
   enemy.modelVisualHeight = visual.userData.visualHeight || 4.35;
   enemy.visualModelKey = 'spider';
@@ -893,7 +906,7 @@ function updateEnemyVisual(enemy, dt, time){
   const attacking=enemy.state==='attack';
   const attackPhase=attacking?(enemy.stateTime<enemy.attackWindup?-0.12:(enemy.stateTime<enemy.attackWindup+0.2?0.16:-0.025)):0;
   const attackLean=attacking?(enemy.type==='boss'?-0.025:-0.07)+attackPhase:(moving&&isLarge?0.025:0);
-  enemy.modelRoot.rotation.x = lerp(enemy.modelRoot.rotation.x, attackLean, 0.2);
+  enemy.modelRoot.rotation.x = lerp(enemy.modelRoot.rotation.x, (enemy.modelBaseRotationX || 0) + attackLean, 0.2);
   const sway=moving?stride*(isLarge?0.026:0.038):breath*0.014;
   enemy.modelRoot.rotation.z=lerp(enemy.modelRoot.rotation.z,sway,0.14);
   enemy.modelRoot.rotation.y=lerp(enemy.modelRoot.rotation.y,attacking?Math.sin(enemy.stateTime*8)*0.035:0,0.14);
