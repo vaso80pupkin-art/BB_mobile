@@ -590,7 +590,7 @@ function loadLocation(idx){
   cameraAngle = 0;
   const bossNames=['CLERIC BEAST','BLOOD-STARVED BEAST','SHADOW OF YHARNAM','MOON PRESENCE'];
   const enemyPalettes=[
-    ['spider','spider','spider','beast'],
+    ['spider'],
     ['spider','beast','beast','hunter'],
     ['beast','hunter','hunter','spider'],
     ['hunter','beast','spider','hunter']

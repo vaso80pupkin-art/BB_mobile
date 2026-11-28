@@ -578,7 +578,7 @@ function spiderClipForState(enemy){
   if(!clips.length) return null;
   const find = pattern=>clips.find(clip=>pattern.test(clip.name));
   if(enemy.state === 'attack') return find(/attack|action|hit/i) || find(/idle/i) || clips[0];
-  if(enemy.state === 'chase' || enemy.state === 'returning') return find(/walk|run|move/i) || find(/idle/i) || clips[0];
+  if(enemy.state === 'chase' || enemy.state === 'returning') return find(/walk/i) || find(/run|move/i) || find(/idle/i) || clips[0];
   return find(/idle|stand/i) || clips[0];
 }
 
@@ -588,17 +588,27 @@ function setSpiderAnimation(enemy, force=false){
   if(!clip || (!force && enemy.modelActionName === clip.name)) return;
   const next = enemy.modelMixer.clipAction(clip);
   const previous = enemy.modelCurrentAction;
+  const attackClip = /attack|action|hit/i.test(clip.name);
+  const distance = hunter && enemy.mesh ? enemy.mesh.position.distanceTo(hunter.position) : (enemy.attackRange || 0);
+  const proximity = Math.max(0, Math.min(1, 1 - distance / Math.max(enemy.attackRange || 1, 0.001)));
   next.reset();
   next.enabled = true;
-  if(enemy.state === 'attack' && /attack|action|hit/i.test(clip.name)){
+  if(attackClip){
     next.setLoop(THREE.LoopOnce, 1);
     next.clampWhenFinished = true;
+    const attackWindow = (enemy.attackWindup || 0.4) + 0.5;
+    next.timeScale = Math.min(1.5, Math.max(0.75, clip.duration / Math.max(attackWindow, 0.25)));
   } else {
     next.setLoop(THREE.LoopRepeat, Infinity);
     next.clampWhenFinished = false;
+    next.timeScale = /walk/i.test(clip.name) ? Math.min(1.5, Math.max(0.75, (enemy.speed || 0.08) / 0.08)) : 1;
   }
   next.play();
-  if(previous && previous !== next) previous.crossFadeTo(next, 0.18, false);
+  if(previous && previous !== next){
+    const previousWasAttack = /attack|action|hit/i.test(previous.getClip().name);
+    const fadeDuration = attackClip ? lerp(0.2, 0.1, proximity) : (previousWasAttack ? lerp(0.14, 0.2, proximity) : 0.18);
+    previous.crossFadeTo(next, fadeDuration, false);
+  }
   enemy.modelCurrentAction = next;
   enemy.modelActionName = clip.name;
 }
@@ -609,6 +619,22 @@ function setEnemyModelLayers(enemy,keepProceduralLimbs){
     const isHud=child===enemy.hpBar.bg || child===enemy.hpBar.fill;
     child.visible=isHud || limbs.has(child);
   });
+}
+
+function disposeSpiderPlaceholderVisuals(enemy,keepRoot){
+  if(!enemy || !enemy.mesh) return;
+  const keep=new Set([enemy.hpBar&&enemy.hpBar.bg,enemy.hpBar&&enemy.hpBar.fill,keepRoot]);
+  enemy.mesh.children.slice().forEach(child=>{
+    if(keep.has(child)) return;
+    child.traverse(node=>{
+      if(!node.isMesh) return;
+      if(node.geometry) node.geometry.dispose();
+      const materials=Array.isArray(node.material)?node.material:(node.material?[node.material]:[]);
+      materials.forEach(material=>material.dispose());
+    });
+    enemy.mesh.remove(child);
+  });
+  enemy.legs=null;
 }
 
 function attachSpiderModel(enemy){
@@ -627,10 +653,14 @@ function attachSpiderModelNow(enemy){
     enemy.mesh.remove(enemy.modelRoot);
   }
   const clips = bundle.animations || [];
-  const visual = fitVisualModel(bundle.scene, 4.35, 8.4, clips.length > 0);
+  const visual = fitVisualModel(bundle.scene, 4.35, 8.4, true);
   if(!visual) return;
   setEnemyModelLayers(enemy,false);
   enemy.mesh.add(visual);
+  visual.traverse(node=>{
+    if(node.isMesh){ node.castShadow=false; node.receiveShadow=false; }
+  });
+  if(clips.length) disposeSpiderPlaceholderVisuals(enemy,visual);
   enemy.proceduralRig=clips.length?null:createProceduralSkeleton(visual,'spider');
   if(!clips.length && !enemy.proceduralRig) setEnemyModelLayers(enemy,true);
   enemy.modelRoot = visual;
@@ -837,8 +867,19 @@ function updateEnemyVisual(enemy, dt, time){
   }
   if(enemy.modelMixer){
     setSpiderAnimation(enemy);
+    let mixerDt=dt;
+    if(enemy.type==='spider'&&hunter){
+      const distance=enemy.mesh.position.distanceTo(hunter.position);
+      const interval=distance>32?1/12:(distance>14?1/30:0);
+      if(interval){
+        enemy.modelUpdateAccumulator=(enemy.modelUpdateAccumulator||0)+dt;
+        if(enemy.modelUpdateAccumulator<interval) return;
+        mixerDt=enemy.modelUpdateAccumulator;
+        enemy.modelUpdateAccumulator=0;
+      }else enemy.modelUpdateAccumulator=0;
+    }
     enemy.modelMixer.timeScale = enemy.stunned > 0 ? 0.15 : 1;
-    enemy.modelMixer.update(dt);
+    enemy.modelMixer.update(mixerDt);
     return;
   }
   if(!enemy.modelRoot) return;
@@ -883,7 +924,7 @@ function loadVisualAssets(){
     hunterEnemyLoadStarted=false;
     console.warn('[BB] Не удалось загрузить 3D-модель охотника; используется запасная модель.', error);
   });
-  modelLoader.load('./MOB/optimized/spider_low.glb', gltf=>{
+  modelLoader.load('./MOB/spider.glb', gltf=>{
     spiderModelBundle = gltf;
     enemies.filter(enemy=>enemy.type === 'spider').forEach(attachSpiderModel);
   }, undefined, error=>{
